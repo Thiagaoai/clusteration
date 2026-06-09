@@ -231,7 +231,7 @@ async function renderNewVm() {
     <div class="card form-card">
       ${options.missing_runtime.length ? `<p class="error">Ambiente Proxmox ainda não configurado: ${options.missing_runtime.join(", ")}.</p>` : ""}
       <form id="create-vm-form" class="form form-grid">
-        <label><span>Hostname</span><input name="hostname" pattern="[A-Za-z0-9]([A-Za-z0-9-]{0,126}[A-Za-z0-9])?" required></label>
+        <label><span>Hostname</span><input name="hostname" pattern="[A-Za-z0-9]([A-Za-z0-9\-]{0,126}[A-Za-z0-9])?" required></label>
         <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${template.os}" ${template.enabled ? "" : "disabled"}>${template.name}</option>`).join("")}</select></label>
         <label><span>Tamanho</span><select name="size">${Object.entries(options.sizes).map(([key, size]) => `<option value="${key}">${size.label}</option>`).join("")}</select></label>
         <label><span>Disco</span><select name="disk_gb">${options.disk_choices.map((gb) => `<option value="${gb}">${gb} GB</option>`).join("")}</select></label>
