@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Login - Clusteration Admin</title>
+    <link rel="icon" type="image/svg+xml" href="/static/img/clusteration-logo.svg">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;700;800&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/css/app.css?v=20260608-2027">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+  </head>
+  <body class="login-body">
+    <section class="login-animation-layer" aria-hidden="true">
+      <video
+        id="clusteration-hero-video"
+        class="dashboard-video"
+        muted
+        autoplay
+        loop
+        playsinline
+        data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"
+      ></video>
+      <div class="dashboard-scrim"></div>
+      <div class="grid-lines login-grid-lines"><span></span><span></span><span></span></div>
+      <svg class="center-glow login-glow" viewBox="0 0 900 240">
+        <defs>
+          <filter id="loginCyanGlowBlur">
+            <feGaussianBlur stdDeviation="25"></feGaussianBlur>
+          </filter>
+        </defs>
+        <ellipse cx="450" cy="110" rx="330" ry="54" fill="#1f9d83" opacity="0.48" filter="url(#loginCyanGlowBlur)"></ellipse>
+        <ellipse cx="450" cy="108" rx="240" ry="34" fill="#54f4d1" opacity="0.18" filter="url(#loginCyanGlowBlur)"></ellipse>
+      </svg>
+    </section>
+    <form class="card login-card" method="post" action="/login">
+      <img class="login-logo" src="/static/img/clusteration-logo.svg" alt="Clusteration">
+      <span class="eyebrow">Single-tenant admin</span>
+      <h1>Secure cluster access</h1>
+      <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
+      {% if error %}<p class="error">{{ error }}</p>{% endif %}
+      <label><span>Usuário</span><input name="username" autocomplete="username" required></label>
+      <label><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="primary-button" type="submit">Entrar</button>
+    </form>
+    <script src="/static/js/clusteration-hero.js?v=20260608-2027"></script>
+  </body>
+</html>
+

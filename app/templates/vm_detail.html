@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}{{ vm.hostname }} - Clusteration{% endblock %}
+{% block content %}
+<div class="card">
+  <div class="card-title">
+    <div>
+      <span class="eyebrow">VM detail</span>
+      <h1>{{ vm.hostname }}</h1>
+    </div>
+    <span class="badge badge-{{ vm.status }}">{{ vm.status }}</span>
+  </div>
+  <dl class="details">
+    <dt>Status</dt><dd>{{ vm.status }}</dd>
+    <dt>SSH</dt><dd>{{ vm.ssh_status }}</dd>
+    <dt>IP</dt><dd>{{ vm.ip_address or "-" }}</dd>
+    <dt>Template</dt><dd>{{ vm.template }}</dd>
+    <dt>Recursos</dt><dd>{{ vm.cpu }} CPU / {{ vm.memory_mb }} MB / {{ vm.disk_gb }} GB</dd>
+  </dl>
+  <a class="ghost-button" href="/">Voltar</a>
+</div>
+{% endblock %}
+

@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Clusteration Admin - cluste.thiagaoai.io{% endblock %}
+{% block content %}
+<section class="cluster-admin-dashboard">
+  <video
+    id="clusteration-hero-video"
+    class="dashboard-video"
+    muted
+    autoplay
+    loop
+    playsinline
+    data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"
+  ></video>
+  <div class="dashboard-scrim"></div>
+  <div class="grid-lines admin-grid-lines" aria-hidden="true"><span></span><span></span><span></span></div>
+  <svg class="center-glow admin-glow" viewBox="0 0 900 240" aria-hidden="true">
+    <defs>
+      <filter id="cyanGlowBlur">
+        <feGaussianBlur stdDeviation="25"></feGaussianBlur>
+      </filter>
+    </defs>
+    <ellipse cx="450" cy="110" rx="330" ry="54" fill="#1f9d83" opacity="0.48" filter="url(#cyanGlowBlur)"></ellipse>
+    <ellipse cx="450" cy="108" rx="240" ry="34" fill="#54f4d1" opacity="0.18" filter="url(#cyanGlowBlur)"></ellipse>
+  </svg>
+
+  <div class="dashboard-layout">
+    <section class="admin-hero-card">
+      <div>
+        <p class="hero-eyebrow">Career-Ready Curriculum</p>
+        <h1>Cluster admin command center<span>.</span></h1>
+        <p class="hero-description">
+          Painel single-tenant para provisionar, monitorar, acessar terminal e controlar lifecycle das suas VMs Proxmox com segurança.
+        </p>
+      </div>
+      <div class="hero-actions">
+        <a class="clusteration-cta" href="/vms/new">
+          Create VM
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"></path></svg>
+        </a>
+        <a class="ghost-button" href="#inventory">View inventory</a>
+      </div>
+    </section>
+
+    <aside class="liquid-card admin-security-card" id="security">
+      <span>[ 2025 ]</span>
+      <h2>Private <em>Cluster</em> Operations</h2>
+      <p>Login obrigatório antes de inventário, terminal SSH e ações críticas de VM.</p>
+    </aside>
+  </div>
+</section>
+
+<section class="content dashboard-content" id="inventory">
+<section class="stats-grid">
+  <article class="card stat-card green">
+    <span>Running VMs</span>
+    <strong>{{ vms|selectattr("status", "equalto", "running")|list|length }}</strong>
+    <small>Compute online now</small>
+  </article>
+  <article class="card stat-card blue">
+    <span>Total inventory</span>
+    <strong>{{ vms|length }}</strong>
+    <small>Managed VM records</small>
+  </article>
+  <article class="card stat-card amber">
+    <span>Lifecycle jobs</span>
+    <strong>{% if has_transient %}Sim{% else %}Não{% endif %}</strong>
+    <small>Auto-refresh when active</small>
+  </article>
+  <article class="card stat-card slate">
+    <span>Access mode</span>
+    <strong>Private</strong>
+    <small>Single-tenant admin</small>
+  </article>
+</section>
+
+<section class="section-header">
+  <div>
+    <span class="eyebrow">Compute operations</span>
+    <h1>VM inventory and actions</h1>
+    <p>Start, stop, reboot, open terminal sessions, and delete only after authenticated admin access.</p>
+  </div>
+  <a class="primary-button" href="/vms/new">Create VM</a>
+</section>
+{% include "partials/vm_table.html" %}
+</section>
+{% endblock %}
+

@@ -1,0 +1,24 @@
+Host pve-jump
+    HostName 23.25.234.65
+    User CHANGE_ME
+    Port 22
+
+Host pve1
+    HostName 10.1.10.15
+    User root
+    ProxyJump pve-jump
+
+Host pve2
+    HostName 10.1.10.149
+    User root
+    ProxyJump pve-jump
+
+Host pve3
+    HostName 10.1.10.241
+    User root
+    ProxyJump pve-jump
+
+Host pve4
+    HostName 10.1.10.43
+    User root
+    ProxyJump pve-jump

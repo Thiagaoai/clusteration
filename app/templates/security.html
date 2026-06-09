@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Security - Clusteration Admin{% endblock %}
+{% block content %}
+<section class="section-header">
+  <div>
+    <span class="eyebrow">Segurança</span>
+    <h1>Credenciais administrativas</h1>
+    <p>Troque o usuário e a senha usados para acessar este painel interno.</p>
+  </div>
+</section>
+
+<div class="card form-card">
+  {% if error %}<p class="error">{{ error }}</p>{% endif %}
+  {% if success %}<p class="success">{{ success }}</p>{% endif %}
+
+  <form class="form form-grid" method="post" action="/admin/security/password">
+    <label>
+      <span>Usuário admin</span>
+      <input name="admin_username" value="{{ admin_username }}" autocomplete="username" required>
+    </label>
+
+    <label>
+      <span>Senha atual</span>
+      <div class="password-field">
+        <input id="current-password" name="current_password" type="password" autocomplete="current-password" required>
+        <button class="password-toggle" type="button" data-toggle-password="#current-password" aria-label="Mostrar senha atual">👁</button>
+      </div>
+    </label>
+
+    <label>
+      <span>Nova senha</span>
+      <div class="password-field">
+        <input id="new-password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+        <button class="password-toggle" type="button" data-toggle-password="#new-password" aria-label="Mostrar nova senha">👁</button>
+      </div>
+    </label>
+
+    <label>
+      <span>Confirmar nova senha</span>
+      <div class="password-field">
+        <input id="confirm-password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+        <button class="password-toggle" type="button" data-toggle-password="#confirm-password" aria-label="Mostrar confirmação">👁</button>
+      </div>
+    </label>
+
+    <div class="form-actions">
+      <a class="ghost-button" href="/">Cancelar</a>
+      <button class="primary-button" type="submit">Salvar credenciais</button>
+    </div>
+  </form>
+</div>
+<script src="/static/js/password-toggle.js?v=20260608-2022"></script>
+{% endblock %}

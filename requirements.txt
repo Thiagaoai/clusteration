@@ -1,0 +1,17 @@
+fastapi
+uvicorn[standard]
+jinja2
+python-multipart
+itsdangerous
+httpx
+asyncssh
+sqlalchemy[asyncio]
+asyncpg
+aiosqlite
+alembic
+pydantic
+pydantic-settings
+passlib[bcrypt]
+bcrypt<4.1
+websockets
+

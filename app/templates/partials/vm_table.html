@@ -1,0 +1,41 @@
+<div id="vm-table"
+     {% if has_transient %}hx-get="/partials/vm-table" hx-trigger="every 5s" hx-swap="outerHTML"{% endif %}>
+  <section class="card">
+    <div class="card-title">
+      <h2>Inventário de VMs</h2>
+      <span class="pill">{{ vms|length }} recursos</span>
+    </div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Hostname</th><th>Status</th><th>SSH</th><th>IP</th><th>Template</th><th>Recursos</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for vm in vms %}
+          <tr>
+            <td><a href="/vms/{{ vm.id }}"><strong>{{ vm.hostname }}</strong></a></td>
+            <td><span class="badge badge-{{ vm.status }}">{{ vm.status }}</span></td>
+            <td>{{ vm.ssh_status }}</td>
+            <td>{{ vm.ip_address or "-" }}</td>
+            <td>{{ vm.template }}</td>
+            <td>{{ vm.cpu }} CPU / {{ vm.memory_mb }} MB / {{ vm.disk_gb }} GB</td>
+            <td class="actions">
+              <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/start" hx-swap="none" {% if not vm.actions.can_start %}disabled{% endif %}>Start</button>
+              <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/stop" hx-swap="none" {% if not vm.actions.can_stop %}disabled{% endif %}>Stop</button>
+              <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/reboot" hx-swap="none" {% if not vm.actions.can_reboot %}disabled{% endif %}>Reboot</button>
+              <button class="primary-button" data-terminal="{{ vm.id }}" {% if not vm.actions.can_terminal %}disabled{% endif %}>Terminal</button>
+              <button class="danger-button" data-delete="{{ vm.id }}" data-hostname="{{ vm.hostname }}" {% if not vm.actions.can_delete %}disabled{% endif %}>Delete</button>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="7" class="empty">Nenhuma VM criada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <script src="/static/js/dashboard.js?v=20260608-2001"></script>
+</div>
+

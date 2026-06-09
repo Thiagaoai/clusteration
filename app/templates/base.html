@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Clusteration Admin{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@1&family=Inter:wght@400;700;800&family=Plus+Jakarta+Sans:wght@700&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/svg+xml" href="/static/img/clusteration-logo.svg">
+    <link rel="shortcut icon" type="image/svg+xml" href="/static/img/clusteration-logo.svg">
+    <link rel="stylesheet" href="/static/css/app.css?v=20260608-2027">
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
+    <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+    {% block head %}{% endblock %}
+  </head>
+  <body class="app-body">
+    <div class="admin-shell">
+      <aside class="admin-sidebar">
+        <a href="/" class="admin-logo" aria-label="Clusteration painel">
+          <img src="/static/img/clusteration-logo.svg" alt="Clusteration">
+        </a>
+        <nav class="admin-nav" aria-label="Navegação principal">
+          <a class="admin-nav-item active" href="/"><span>▦</span>Overview</a>
+          <a class="admin-nav-item" href="/vms/new"><span>＋</span>Create VM</a>
+          <a class="admin-nav-item" href="#inventory"><span>⌁</span>Inventory</a>
+          <a class="admin-nav-item" href="/admin/security"><span>◈</span>Security</a>
+        </nav>
+        <div class="tenant-lock">
+          <span class="status-dot"></span>
+          <div>
+            <strong>Single tenant</strong>
+            <small>Admin session required</small>
+          </div>
+        </div>
+      </aside>
+      <div class="admin-workspace">
+        <header class="admin-topbar">
+          <div>
+            <span>Secure cluster panel</span>
+            <strong>Clusteration / cluste.thiagaoai.io</strong>
+          </div>
+          <form method="post" action="/logout">
+            <button class="ghost-button" type="submit">Logout</button>
+          </form>
+        </header>
+        <main>
+          {% block content %}{% endblock %}
+        </main>
+      </div>
+    </div>
+    <script src="/static/js/clusteration-hero.js?v=20260608-2008"></script>
+  </body>
+</html>
+

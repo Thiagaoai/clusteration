@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Terminal - Clusteration{% endblock %}
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+{% endblock %}
+{% block content %}
+<div class="terminal-header card">
+  <div>
+    <span class="eyebrow">Console SSH</span>
+    <h1>Terminal</h1>
+  </div>
+  <span class="pill warn" id="terminal-status">connecting</span>
+</div>
+<div id="terminal" data-session="{{ session_id }}"></div>
+<script src="/static/js/terminal.js?v=20260608-2001"></script>
+{% endblock %}
+

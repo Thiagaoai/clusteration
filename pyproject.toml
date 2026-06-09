@@ -1,0 +1,31 @@
+[project]
+name = "proxmox-vm-panel"
+version = "0.1.0"
+description = "Painel interno FastAPI para criação e gerenciamento de VMs Proxmox"
+requires-python = ">=3.11"
+dependencies = [
+  "fastapi",
+  "uvicorn[standard]",
+  "jinja2",
+  "python-multipart",
+  "itsdangerous",
+  "httpx",
+  "asyncssh",
+  "sqlalchemy[asyncio]",
+  "asyncpg",
+  "aiosqlite",
+  "alembic",
+  "pydantic",
+  "pydantic-settings",
+  "passlib[bcrypt]",
+  "bcrypt<4.1",
+  "websockets",
+]
+
+[project.optional-dependencies]
+worker = ["arq"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
