@@ -78,7 +78,7 @@ Estado recebido em 2026-06-08:
 
 - 4 nós Proxmox VE 9.2.3: `pve1`, `pve2`, `pve3`, `pve4`
 - Rede: `10.1.10.0/24`, gateway `10.1.10.1`, DNS `1.1.1.1`
-- GUI: `https://cluster-thiagao.dockplusai.io` ou `https://10.1.10.15:8006`
+- GUI: `https://cluster.thiagaoai.online` ou `https://10.1.10.15:8006`
 - Sem storage compartilhado; `local` e `local-lvm` são locais a cada nó
 - Cluster vazio: 0 VMs, 0 containers
 - Quorum 3/4: nunca reiniciar dois nós ao mesmo tempo

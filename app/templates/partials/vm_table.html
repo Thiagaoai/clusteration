@@ -15,13 +15,13 @@
         <tbody>
           {% for vm in vms %}
           <tr>
-            <td><a href="/vms/{{ vm.id }}"><strong>{{ vm.hostname }}</strong></a></td>
-            <td><span class="badge badge-{{ vm.status }}">{{ vm.status }}</span></td>
-            <td>{{ vm.ssh_status }}</td>
-            <td>{{ vm.ip_address or "-" }}</td>
-            <td>{{ vm.template }}</td>
-            <td>{{ vm.cpu }} CPU / {{ vm.memory_mb }} MB / {{ vm.disk_gb }} GB</td>
-            <td class="actions">
+            <td data-label="Hostname"><a href="/vms/{{ vm.id }}"><strong>{{ vm.hostname }}</strong></a></td>
+            <td data-label="Status"><span class="badge badge-{{ vm.status }}">{{ vm.status }}</span></td>
+            <td data-label="SSH">{{ vm.ssh_status }}</td>
+            <td data-label="IP">{{ vm.ip_address or "-" }}</td>
+            <td data-label="Template">{{ vm.template }}</td>
+            <td data-label="Recursos">{{ vm.cpu }} CPU / {{ vm.memory_mb }} MB / {{ vm.disk_gb }} GB</td>
+            <td class="actions" data-label="Ações">
               <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/start" hx-swap="none" {% if not vm.actions.can_start %}disabled{% endif %}>Start</button>
               <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/stop" hx-swap="none" {% if not vm.actions.can_stop %}disabled{% endif %}>Stop</button>
               <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/reboot" hx-swap="none" {% if not vm.actions.can_reboot %}disabled{% endif %}>Reboot</button>
@@ -36,6 +36,6 @@
       </table>
     </div>
   </section>
-  <script src="/static/js/dashboard.js?v=20260608-2001"></script>
+  <script src="/static/js/dashboard.js?v=20260608-2101"></script>
 </div>
 

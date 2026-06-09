@@ -6,7 +6,7 @@ Documento operacional sem senha em claro. A senha original do handoff deve ser t
 
 - Cluster `cluster-thiago`, 4 nós Proxmox VE 9.2.3.
 - Rede `10.1.10.0/24`, gateway `10.1.10.1`, DNS `1.1.1.1`.
-- GUI: `https://cluster-thiagao.dockplusai.io` ou `https://10.1.10.15:8006`.
+- GUI: `https://cluster.thiagaoai.online` ou `https://10.1.10.15:8006`.
 - Login atual: `root@pam`; senha sensível removida deste repositório.
 - Hardening atual: `fail2ban` ativo nos 4 nós, firewall Proxmox desligado, SSH por senha ligado.
 - Quorum 3/4: tolera apenas uma falha. Não reiniciar dois nós ao mesmo tempo.
