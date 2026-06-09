@@ -1,10 +1,12 @@
 import asyncio
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, WebSocket
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -82,4 +84,22 @@ async def unhandled_exception_handler(request, exc):
         content={"error": {"code": "INTERNAL_ERROR", "message": "erro interno", "request_id": request_id}},
         headers={"X-Request-Id": request_id},
     )
+
+
+WEB_DIR = Path(__file__).resolve().parent / "web"
+
+for asset_dir in ("css", "js", "img"):
+    target = WEB_DIR / asset_dir
+    if target.is_dir():
+        app.mount(f"/{asset_dir}", StaticFiles(directory=target), name=asset_dir)
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def spa(full_path: str):
+    if full_path.startswith(("api/", "health", "terminal/")):
+        raise HTTPException(status_code=404)
+    index_file = WEB_DIR / "index.html"
+    if index_file.is_file():
+        return FileResponse(index_file)
+    raise HTTPException(status_code=404)
 

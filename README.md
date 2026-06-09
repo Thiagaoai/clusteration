@@ -45,16 +45,16 @@ O healthcheck fica em `GET /health`; a UI fica em `/login`.
 
 ### Docker
 
-O projeto inclui dois serviços autossuficientes, cada um com seu próprio contexto de build:
-
-- `backend/` (`backend/Dockerfile`): API FastAPI na porta `8000`
-- `frontend/` (`frontend/Dockerfile`): frontend estático Nginx na porta `80`
+O painel é um **serviço único**: o backend FastAPI serve a API, o WebSocket do
+terminal e o frontend estático (SPA em `backend/app/web/`) na mesma porta `8000`.
 
 ```bash
 cp backend/.env.example backend/.env
 $EDITOR backend/.env
 docker compose up -d --build
 ```
+
+Depois acesse `http://localhost:8000`.
 
 O backend aplica migrations automaticamente no startup e sobe o FastAPI na porta `8000`.
 Veja também `docs/deployment.md`.

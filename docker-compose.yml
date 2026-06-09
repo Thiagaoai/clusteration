@@ -1,10 +1,10 @@
 services:
-  backend:
+  app:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     environment:
       ENVIRONMENT: ${ENVIRONMENT:-production}
       SECRET_KEY: ${SECRET_KEY:-}
@@ -30,18 +30,6 @@ services:
       WORKER_MODE: ${WORKER_MODE:-inprocess}
     volumes:
       - panel-data:/data
-    restart: unless-stopped
-
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    environment:
-      BACKEND_URL: http://backend:8000
-    expose:
-      - "80"
-    depends_on:
-      - backend
     restart: unless-stopped
 
 volumes:

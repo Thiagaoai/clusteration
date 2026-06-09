@@ -17,37 +17,39 @@ Copie `.env.example` para `.env` e preencha:
 
 Nunca versionar `.env`.
 
-## Estrutura para Dokploy
+## Estrutura para Dokploy (serviço único)
 
-O repositório está separado em dois serviços **autossuficientes**, cada um com
-seu próprio contexto de build (a pasta do serviço):
+O painel é **um serviço só**: o backend FastAPI serve a API (`/api`), o WebSocket
+do terminal (`/terminal/ws`) **e** o frontend estático (SPA em `backend/app/web/`).
+Não há mais proxy nginx separado nem comunicação entre containers — por isso não
+existe mais 502/erro de rota entre serviços.
 
-- `backend/`: backend FastAPI completo (código em `backend/app/`, migrations em
-  `backend/alembic/`, `backend/requirements.txt`, etc.).
-- `frontend/`: frontend estático Nginx (HTML/CSS/JS em `frontend/`).
+### Deploy como Dockerfile (recomendado)
 
-## Opção A (recomendada): deploy único via Docker Compose
+No Dokploy, crie **um** app apontando para o repositório:
 
-É a forma mais simples e à prova de erro de rede: o frontend fala com o backend
-pelo nome de serviço `backend` automaticamente (mesma rede do stack), sem
-precisar adivinhar hostname interno.
+- Build type: Dockerfile
+- Build context / Root Directory: `backend`
+- Dockerfile path: `Dockerfile` (relativo ao contexto `backend`)
+- Porta interna: `8000`
+- Healthcheck: `/health`
+- Em **Domains**, aponte seu domínio (ex.: `app.thiagao.online`) para esse app,
+  porta `8000`.
+- Em **Advanced → Volumes**, monte um volume em `/data` para persistir o SQLite.
 
-No Dokploy:
+### Ou via Docker Compose
 
-1. Crie um serviço do tipo **Docker Compose** apontando para este repositório.
-2. Compose path: `docker-compose.yml`.
-3. Na aba **Environment**, preencha as variáveis do backend (veja a lista
-   abaixo). O Compose injeta elas via `${VAR}`.
-4. Em **Domains**, aponte seu domínio (ex.: `app.thiagao.online`) para o serviço
-   **`frontend`**, porta `80`.
+Crie um serviço **Docker Compose** apontando para `docker-compose.yml`. Ele tem um
+único serviço `app` (porta `8000`) com o volume `panel-data:/data`. Aponte o
+domínio para o serviço `app`, porta `8000`.
 
-O `BACKEND_URL` do frontend já vem fixo como `http://backend:8000` no
-`docker-compose.yml`, então não precisa configurar nada extra de rede.
-
-Variáveis (aba Environment do Compose):
+Variáveis (aba Environment, em qualquer um dos dois modos):
 
 ```bash
+ENVIRONMENT=production
 SECRET_KEY=...
+SESSION_SAME_SITE=lax
+SESSION_HTTPS_ONLY=true
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=...
 DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db
@@ -59,66 +61,8 @@ CONSOLE_SSH_PRIVATE_KEY=...
 CONSOLE_SSH_PUBLIC_KEY=...
 ```
 
-Para persistir o SQLite entre deploys, o volume `panel-data:/data` já está no
-compose. (Para produção mais robusta, use Postgres apontando `DATABASE_URL` para
-`postgresql+asyncpg://...`.)
-
-## Opção B: dois apps separados (Dockerfile)
-
-Crie dois apps apontando para o mesmo repositório GitHub. Os dois precisam estar
-na **mesma rede** (`dokploy-network`, padrão para Applications; não use *Isolated
-Deployments*), e o frontend precisa do **nome de serviço interno do backend**.
-
-### Backend
-
-- Build type: Dockerfile
-- Build context / Root Directory: `backend`
-- Dockerfile path: `Dockerfile` (relativo ao contexto `backend`)
-- Porta interna: `8000`
-- Healthcheck: `/health`
-
-Variáveis principais do backend:
-
-```bash
-ENVIRONMENT=production
-SECRET_KEY=...
-SESSION_SAME_SITE=lax
-SESSION_HTTPS_ONLY=true
-DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db
-PROXMOX_HOST=...
-PROXMOX_TOKEN_ID=...
-PROXMOX_TOKEN_SECRET=...
-CONSOLE_SSH_PRIVATE_KEY=...
-CONSOLE_SSH_PUBLIC_KEY=...
-```
-
-Se o frontend estiver em outro domínio, configure também:
-
-```bash
-CORS_ORIGINS=https://seu-frontend.example.com
-SESSION_SAME_SITE=none
-SESSION_HTTPS_ONLY=true
-```
-
-### Frontend
-
-- Build type: Dockerfile
-- Build context / Root Directory: `frontend`
-- Dockerfile path: `Dockerfile` (relativo ao contexto `frontend`)
-- Porta interna: `80`
-
-Variável do frontend (use o **nome de serviço interno** do app backend, que
-aparece nas configurações/logs do Dokploy — ex.: `clusteration-clusterationbackend-faaijc`):
-
-```bash
-BACKEND_URL=http://<nome-do-servico-backend>:8000
-```
-
-Se aparecer **502** em `/api/...`, é porque o `BACKEND_URL` não está resolvendo o
-backend. Confirme o nome do serviço e que ambos os apps estão na `dokploy-network`.
-Na dúvida, use a **Opção A (Compose)**, que elimina esse problema.
-
-Quando frontend e backend estão na mesma rede interna do Dokploy, use o host interno do serviço backend. O Nginx do frontend faz proxy de `/api` e `/terminal/ws` para esse backend.
+Para produção mais robusta, use Postgres apontando `DATABASE_URL` para
+`postgresql+asyncpg://...` (o `asyncpg` já está nas dependências).
 
 ## Arquivos que precisam estar no Git
 
@@ -129,14 +73,9 @@ backend/requirements.txt
 backend/alembic.ini
 backend/alembic/
 backend/app/
+backend/app/web/        # SPA (index.html, css, js, img) servido pelo FastAPI
 backend/config/
 backend/scripts/
-frontend/Dockerfile
-frontend/nginx.conf
-frontend/index.html
-frontend/css/
-frontend/js/
-frontend/img/
 pyproject.toml
 docker-compose.yml
 .env.example
