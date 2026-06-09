@@ -83,6 +83,31 @@ async def list_vms(db: AsyncSession = Depends(get_db)):
     return {"vms": [serialize_vm(vm) for vm in vms]}
 
 
+@router.get("/templates")
+async def list_templates(db: AsyncSession = Depends(get_db)):
+    templates = (await db.scalars(select(Template).order_by(Template.os))).all()
+    return {
+        "templates": [
+            {
+                "name": template.name,
+                "os": template.os,
+                "enabled": (template.defaults or {}).get("enabled") is not False,
+            }
+            for template in templates
+        ]
+    }
+
+
+@router.get("/options")
+async def options():
+    settings = get_settings()
+    return {
+        "sizes": {key: {"label": value["label"], "cpu": value["cpu"], "memory_mb": value["memory_mb"]} for key, value in VM_SIZES.items()},
+        "disk_choices": settings.VM_DISK_CHOICES,
+        "missing_runtime": missing_runtime_settings(settings),
+    }
+
+
 @router.get("/readiness")
 async def readiness():
     missing = missing_runtime_settings(get_settings())

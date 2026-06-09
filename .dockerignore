@@ -11,5 +11,4 @@ __pycache__
 *.tmp
 config/cluster.env
 config/ssh_config
-frontend-ui-ux-extract
 

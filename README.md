@@ -42,7 +42,10 @@ O healthcheck fica em `GET /health`; a UI fica em `/login`.
 
 ### Docker
 
-O projeto inclui `Dockerfile`, `.dockerignore` e `docker-compose.yml`.
+O projeto inclui Dockerfiles separados para Dokploy:
+
+- `backend/Dockerfile`: API FastAPI na porta `8000`
+- `frontend/Dockerfile`: frontend estático Nginx na porta `80`
 
 ```bash
 cp .env.example .env
@@ -50,7 +53,7 @@ $EDITOR .env
 docker compose up -d --build
 ```
 
-O container aplica migrations automaticamente no startup e sobe o FastAPI na porta `8000`.
+O backend aplica migrations automaticamente no startup e sobe o FastAPI na porta `8000`.
 Veja também `docs/deployment.md`.
 
 Antes de criar VMs, valide o ambiente Proxmox:

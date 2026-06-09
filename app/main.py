@@ -4,11 +4,12 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, WebSocket
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
 
+from app.api.auth import router as auth_router
 from app.api.internal import router as internal_router
 from app.api.routes import router as api_router
 from app.core.config import get_settings
@@ -22,7 +23,6 @@ from app.core.errors import (
 from app.db.session import AsyncSessionLocal, get_db
 from app.services.lifecycle import mark_orphaned_running_as_failed, seed_templates
 from app.services.terminal import terminal_websocket
-from app.ui.routes import router as ui_router
 from app.workers.inprocess import requeue_queued_jobs, worker_loop
 
 
@@ -40,21 +40,28 @@ async def lifespan(app: FastAPI):
 settings = get_settings()
 app = FastAPI(title="Proxmox VM Panel", lifespan=lifespan)
 app.add_middleware(RequestIdMiddleware)
+if settings.CORS_ORIGINS:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[origin.strip() for origin in settings.CORS_ORIGINS.split(",") if origin.strip()],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     max_age=settings.SESSION_MAX_AGE,
-    same_site="lax",
-    https_only=settings.ENVIRONMENT == "production",
+    same_site=settings.SESSION_SAME_SITE,
+    https_only=settings.SESSION_HTTPS_ONLY or settings.ENVIRONMENT == "production",
 )
 app.add_exception_handler(AppHTTPException, app_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
-app.mount("/static", StaticFiles(directory="app/static"), name="static")
+app.include_router(auth_router)
 app.include_router(api_router)
 app.include_router(internal_router)
-app.include_router(ui_router)
 
 
 @app.get("/health")

@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"
     SECRET_KEY: str = "dev-only-change-me"
     SESSION_MAX_AGE: int = 86400
+    SESSION_SAME_SITE: Literal["lax", "strict", "none"] = "lax"
+    SESSION_HTTPS_ONLY: bool = False
+    CORS_ORIGINS: str = ""
 
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str = ""
