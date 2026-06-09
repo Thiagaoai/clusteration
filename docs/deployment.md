@@ -26,7 +26,48 @@ seu próprio contexto de build (a pasta do serviço):
   `backend/alembic/`, `backend/requirements.txt`, etc.).
 - `frontend/`: frontend estático Nginx (HTML/CSS/JS em `frontend/`).
 
-No Dokploy, crie dois apps apontando para o mesmo repositório GitHub:
+## Opção A (recomendada): deploy único via Docker Compose
+
+É a forma mais simples e à prova de erro de rede: o frontend fala com o backend
+pelo nome de serviço `backend` automaticamente (mesma rede do stack), sem
+precisar adivinhar hostname interno.
+
+No Dokploy:
+
+1. Crie um serviço do tipo **Docker Compose** apontando para este repositório.
+2. Compose path: `docker-compose.yml`.
+3. Na aba **Environment**, preencha as variáveis do backend (veja a lista
+   abaixo). O Compose injeta elas via `${VAR}`.
+4. Em **Domains**, aponte seu domínio (ex.: `app.thiagao.online`) para o serviço
+   **`frontend`**, porta `80`.
+
+O `BACKEND_URL` do frontend já vem fixo como `http://backend:8000` no
+`docker-compose.yml`, então não precisa configurar nada extra de rede.
+
+Variáveis (aba Environment do Compose):
+
+```bash
+SECRET_KEY=...
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD_HASH=...
+DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db
+PROXMOX_HOST=https://10.1.10.209:8006
+PROXMOX_TOKEN_ID=...
+PROXMOX_TOKEN_SECRET=...
+PROXMOX_DEFAULT_NODE=pve
+CONSOLE_SSH_PRIVATE_KEY=...
+CONSOLE_SSH_PUBLIC_KEY=...
+```
+
+Para persistir o SQLite entre deploys, o volume `panel-data:/data` já está no
+compose. (Para produção mais robusta, use Postgres apontando `DATABASE_URL` para
+`postgresql+asyncpg://...`.)
+
+## Opção B: dois apps separados (Dockerfile)
+
+Crie dois apps apontando para o mesmo repositório GitHub. Os dois precisam estar
+na **mesma rede** (`dokploy-network`, padrão para Applications; não use *Isolated
+Deployments*), e o frontend precisa do **nome de serviço interno do backend**.
 
 ### Backend
 
@@ -66,11 +107,16 @@ SESSION_HTTPS_ONLY=true
 - Dockerfile path: `Dockerfile` (relativo ao contexto `frontend`)
 - Porta interna: `80`
 
-Variável do frontend:
+Variável do frontend (use o **nome de serviço interno** do app backend, que
+aparece nas configurações/logs do Dokploy — ex.: `clusteration-clusterationbackend-faaijc`):
 
 ```bash
-BACKEND_URL=http://nome-do-servico-backend:8000
+BACKEND_URL=http://<nome-do-servico-backend>:8000
 ```
+
+Se aparecer **502** em `/api/...`, é porque o `BACKEND_URL` não está resolvendo o
+backend. Confirme o nome do serviço e que ambos os apps estão na `dokploy-network`.
+Na dúvida, use a **Opção A (Compose)**, que elimina esse problema.
 
 Quando frontend e backend estão na mesma rede interna do Dokploy, use o host interno do serviço backend. O Nginx do frontend faz proxy de `/api` e `/terminal/ws` para esse backend.
 

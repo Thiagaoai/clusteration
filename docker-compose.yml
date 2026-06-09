@@ -3,28 +3,46 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    env_file:
-      - backend/.env
+    expose:
+      - "8000"
+    environment:
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:-}
+      SESSION_MAX_AGE: ${SESSION_MAX_AGE:-86400}
+      SESSION_SAME_SITE: ${SESSION_SAME_SITE:-lax}
+      SESSION_HTTPS_ONLY: ${SESSION_HTTPS_ONLY:-true}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_PASSWORD_HASH: ${ADMIN_PASSWORD_HASH:-}
+      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////data/vmpanel.db}
+      PROXMOX_HOST: ${PROXMOX_HOST:-}
+      PROXMOX_TOKEN_ID: ${PROXMOX_TOKEN_ID:-}
+      PROXMOX_TOKEN_SECRET: ${PROXMOX_TOKEN_SECRET:-}
+      PROXMOX_DEFAULT_NODE: ${PROXMOX_DEFAULT_NODE:-pve}
+      PROXMOX_DEFAULT_STORAGE: ${PROXMOX_DEFAULT_STORAGE:-local-lvm}
+      PROXMOX_DEFAULT_BRIDGE: ${PROXMOX_DEFAULT_BRIDGE:-vmbr0}
+      CLOUDINIT_NAMESERVER: ${CLOUDINIT_NAMESERVER:-1.1.1.1}
+      CLOUDINIT_IPCONFIG: ${CLOUDINIT_IPCONFIG:-ip=dhcp}
+      CONSOLE_SSH_PRIVATE_KEY: ${CONSOLE_SSH_PRIVATE_KEY:-}
+      CONSOLE_SSH_PUBLIC_KEY: ${CONSOLE_SSH_PUBLIC_KEY:-}
+      CONSOLE_SSH_USER: ${CONSOLE_SSH_USER:-root}
+      CONSOLE_SSH_PORT: ${CONSOLE_SSH_PORT:-22}
+      WORKER_MODE: ${WORKER_MODE:-inprocess}
     volumes:
       - panel-data:/data
-    environment:
-      DATABASE_URL: ${DATABASE_URL:-sqlite+aiosqlite:////data/vmpanel.db}
     restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    ports:
-      - "8080:80"
     environment:
       BACKEND_URL: http://backend:8000
+    expose:
+      - "80"
     depends_on:
       - backend
     restart: unless-stopped
 
 volumes:
   panel-data:
-
