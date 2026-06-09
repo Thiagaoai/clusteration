@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str = ""
+    ADMIN_PASSWORD: str = ""
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./vmpanel.db"
 

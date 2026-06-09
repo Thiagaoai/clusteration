@@ -1,3 +1,5 @@
+import hmac
+
 from fastapi import HTTPException, Request, status
 from passlib.context import CryptContext
 
@@ -12,7 +14,11 @@ def require_admin(request: Request) -> None:
 
 
 def verify_login(username: str, password: str, settings: Settings) -> bool:
-    if not settings.ADMIN_PASSWORD_HASH:
+    if username != settings.ADMIN_USERNAME:
         return False
-    return username == settings.ADMIN_USERNAME and pwd.verify(password, settings.ADMIN_PASSWORD_HASH)
+    if settings.ADMIN_PASSWORD:
+        return hmac.compare_digest(password, settings.ADMIN_PASSWORD)
+    if settings.ADMIN_PASSWORD_HASH:
+        return pwd.verify(password, settings.ADMIN_PASSWORD_HASH)
+    return False
 
