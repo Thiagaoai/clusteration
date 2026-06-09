@@ -62,10 +62,25 @@ function bindShellEvents() {
 function renderLogin(error = "") {
   app.innerHTML = `
     <main class="login-page">
+      <section class="login-animation-layer" aria-hidden="true">
+        <video id="clusteration-hero-video" class="dashboard-video" muted autoplay loop playsinline data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"></video>
+        <div class="dashboard-scrim"></div>
+        <div class="grid-lines login-grid-lines"><span></span><span></span><span></span></div>
+        <svg class="center-glow login-glow" viewBox="0 0 900 240" aria-hidden="true">
+          <defs>
+            <filter id="loginCyanGlowBlur">
+              <feGaussianBlur stdDeviation="25"></feGaussianBlur>
+            </filter>
+          </defs>
+          <ellipse cx="450" cy="110" rx="330" ry="54" fill="#1f9d83" opacity="0.48" filter="url(#loginCyanGlowBlur)"></ellipse>
+          <ellipse cx="450" cy="108" rx="240" ry="34" fill="#54f4d1" opacity="0.18" filter="url(#loginCyanGlowBlur)"></ellipse>
+        </svg>
+      </section>
       <form class="card form-card login-card" id="login-form">
         <img class="login-logo" src="/img/clusteration-logo.svg" alt="Clusteration">
-        <h1>Clusteration Admin</h1>
-        <p>Painel privado para gerenciar VMs Proxmox.</p>
+        <span class="eyebrow">Single-tenant admin</span>
+        <h1>Secure cluster access</h1>
+        <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
         ${error ? `<p class="error">${error}</p>` : ""}
         <label><span>Usuário</span><input name="username" autocomplete="username" required></label>
         <label><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
@@ -73,6 +88,7 @@ function renderLogin(error = "") {
       </form>
     </main>
   `;
+  startHeroVideo();
   document.getElementById("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = JSON.stringify(Object.fromEntries(new FormData(event.currentTarget).entries()));
@@ -288,12 +304,20 @@ function startHeroVideo() {
   const video = document.getElementById("clusteration-hero-video");
   if (!video) return;
   const src = video.dataset.hlsSrc;
+  if (!src) return;
   if (window.Hls && Hls.isSupported()) {
-    const hls = new Hls();
+    const hls = new Hls({ enableWorker: false });
     hls.loadSource(src);
     hls.attachMedia(video);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play().catch(() => {});
+    });
+  } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+    video.src = src;
+    video.addEventListener("canplay", () => video.play().catch(() => {}), { once: true });
   } else {
     video.src = src;
+    video.play().catch(() => {});
   }
 }
 
