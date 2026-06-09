@@ -61,6 +61,16 @@ app.add_exception_handler(AppHTTPException, app_exception_handler)
 app.add_exception_handler(HTTPException, http_exception_handler)
 app.add_exception_handler(RequestValidationError, validation_exception_handler)
 
+@app.middleware("http")
+async def spa_no_cache(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    is_api = path.startswith(("/api", "/health", "/terminal"))
+    if not is_api and request.method in ("GET", "HEAD"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
 app.include_router(auth_router)
 app.include_router(api_router)
 app.include_router(internal_router)
