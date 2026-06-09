@@ -19,8 +19,6 @@ COPY alembic ./alembic
 COPY app ./app
 COPY scripts ./scripts
 COPY config ./config
-COPY docs ./docs
-COPY README.md .
 
 EXPOSE 8000
 

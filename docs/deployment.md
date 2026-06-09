@@ -19,18 +19,20 @@ Nunca versionar `.env`.
 
 ## Estrutura para Dokploy
 
-O repositório agora está separado em dois serviços:
+O repositório está separado em dois serviços **autossuficientes**, cada um com
+seu próprio contexto de build (a pasta do serviço):
 
-- `backend/`: Dockerfile do backend FastAPI, usando o código Python em `app/`.
-- `frontend/`: Dockerfile do frontend estático Nginx, usando HTML/CSS/JS em `frontend/`.
+- `backend/`: backend FastAPI completo (código em `backend/app/`, migrations em
+  `backend/alembic/`, `backend/requirements.txt`, etc.).
+- `frontend/`: frontend estático Nginx (HTML/CSS/JS em `frontend/`).
 
 No Dokploy, crie dois apps apontando para o mesmo repositório GitHub:
 
 ### Backend
 
 - Build type: Dockerfile
-- Root / build context: `.`
-- Dockerfile path: `backend/Dockerfile`
+- Build context / Root Directory: `backend`
+- Dockerfile path: `Dockerfile` (relativo ao contexto `backend`)
 - Porta interna: `8000`
 - Healthcheck: `/health`
 
@@ -60,8 +62,8 @@ SESSION_HTTPS_ONLY=true
 ### Frontend
 
 - Build type: Dockerfile
-- Root / build context: `.`
-- Dockerfile path: `frontend/Dockerfile`
+- Build context / Root Directory: `frontend`
+- Dockerfile path: `Dockerfile` (relativo ao contexto `frontend`)
 - Porta interna: `80`
 
 Variável do frontend:
@@ -76,24 +78,25 @@ Quando frontend e backend estão na mesma rede interna do Dokploy, use o host in
 
 ```text
 backend/Dockerfile
+backend/.dockerignore
+backend/requirements.txt
+backend/alembic.ini
+backend/alembic/
+backend/app/
+backend/config/
+backend/scripts/
 frontend/Dockerfile
 frontend/nginx.conf
 frontend/index.html
 frontend/css/
 frontend/js/
 frontend/img/
-app/
-alembic/
-alembic.ini
-requirements.txt
 pyproject.toml
 docker-compose.yml
 .env.example
 .gitignore
 .dockerignore
-config/
 docs/
-scripts/
 README.md
 ```
 
@@ -104,8 +107,8 @@ Não versionar:
 vmpanel.db
 .venv/
 __pycache__/
-config/cluster.env
-config/ssh_config
+backend/config/cluster.env
+backend/config/ssh_config
 ```
 
 ## Docker Compose

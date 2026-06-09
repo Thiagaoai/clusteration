@@ -1,5 +1,5 @@
-config/cluster.env
-config/ssh_config
+backend/config/cluster.env
+backend/config/ssh_config
 .env
 .env.*
 !.env.example

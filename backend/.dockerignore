@@ -1,0 +1,15 @@
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+*.db
+*.sqlite
+*.sqlite3
+*.log
+*.tmp
+.env
+.env.*
+config/cluster.env
+config/ssh_config

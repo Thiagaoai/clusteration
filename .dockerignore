@@ -9,6 +9,6 @@ __pycache__
 *.sqlite3
 *.log
 *.tmp
-config/cluster.env
-config/ssh_config
+backend/config/cluster.env
+backend/config/ssh_config
 

@@ -6,11 +6,14 @@ Nuvem de VPS/VMs.
 
 ## Painel Interno de VMs
 
-Este repositório agora inclui um painel FastAPI em `app/` para criar e gerenciar VMs Proxmox com UI Jinja2/HTMX, worker in-process, terminal SSH/PTY via WebSocket e exposição opcional por subdomínio.
+Este repositório inclui um painel FastAPI em `backend/app/` para criar e gerenciar VMs Proxmox com UI Jinja2/HTMX, worker in-process, terminal SSH/PTY via WebSocket e exposição opcional por subdomínio.
+
+O backend é autossuficiente dentro de `backend/` (código, migrations, `requirements.txt`, `.env`). Rode os comandos abaixo a partir dessa pasta.
 
 ### Setup rápido
 
 ```bash
+cd backend
 python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -42,14 +45,14 @@ O healthcheck fica em `GET /health`; a UI fica em `/login`.
 
 ### Docker
 
-O projeto inclui Dockerfiles separados para Dokploy:
+O projeto inclui dois serviços autossuficientes, cada um com seu próprio contexto de build:
 
-- `backend/Dockerfile`: API FastAPI na porta `8000`
-- `frontend/Dockerfile`: frontend estático Nginx na porta `80`
+- `backend/` (`backend/Dockerfile`): API FastAPI na porta `8000`
+- `frontend/` (`frontend/Dockerfile`): frontend estático Nginx na porta `80`
 
 ```bash
-cp .env.example .env
-$EDITOR .env
+cp backend/.env.example backend/.env
+$EDITOR backend/.env
 docker compose up -d --build
 ```
 
@@ -59,6 +62,7 @@ Veja também `docs/deployment.md`.
 Antes de criar VMs, valide o ambiente Proxmox:
 
 ```bash
+cd backend
 source .venv/bin/activate
 python scripts/panel-doctor.py
 ```
@@ -89,15 +93,15 @@ Estado recebido em 2026-06-08:
 ## Arquivos
 
 - `docs/cluster-handoff.md`: handoff redigido, sem senha em claro
-- `config/cluster.env.example`: variáveis para os scripts
-- `config/ssh_config.example`: exemplo de acesso via jump host
-- `scripts/cluster-health.sh`: checagem de saúde do cluster
-- `scripts/rolling-upgrade.sh`: upgrade e reboot um nó por vez
-- `scripts/configure-vzdump.sh`: cria agenda básica de backups
-- `scripts/update-pve-certs.sh`: normaliza `search lan` e renova certificados PVE
-- `scripts/rotate-root-password.sh`: troca senha root nos quatro nós
-- `scripts/harden-ssh-key-only.sh`: desativa login SSH por senha depois da rotação
-- `Dockerfile` / `docker-compose.yml`: build e execução em container
+- `backend/config/cluster.env.example`: variáveis para os scripts
+- `backend/config/ssh_config.example`: exemplo de acesso via jump host
+- `backend/scripts/cluster-health.sh`: checagem de saúde do cluster
+- `backend/scripts/rolling-upgrade.sh`: upgrade e reboot um nó por vez
+- `backend/scripts/configure-vzdump.sh`: cria agenda básica de backups
+- `backend/scripts/update-pve-certs.sh`: normaliza `search lan` e renova certificados PVE
+- `backend/scripts/rotate-root-password.sh`: troca senha root nos quatro nós
+- `backend/scripts/harden-ssh-key-only.sh`: desativa login SSH por senha depois da rotação
+- `backend/Dockerfile` / `frontend/Dockerfile` / `docker-compose.yml`: build e execução em container
 - `docs/deployment.md`: guia de deploy e variáveis obrigatórias
 
 ## Uso Rápido
@@ -105,6 +109,7 @@ Estado recebido em 2026-06-08:
 Copie o arquivo de exemplo e preencha os dados locais:
 
 ```bash
+cd backend
 cp config/cluster.env.example config/cluster.env
 $EDITOR config/cluster.env
 ```
@@ -126,12 +131,12 @@ export PVE_ROOT_PASSWORD
 ## Ordem Recomendada
 
 1. Confirmar acesso ao jump host e aos nós.
-2. Rodar `bash scripts/cluster-health.sh`.
-3. Trocar a senha root com `bash scripts/rotate-root-password.sh`.
-4. Configurar backups com `bash scripts/configure-vzdump.sh`.
-5. Atualizar certificados com `bash scripts/update-pve-certs.sh`.
+2. Rodar `bash backend/scripts/cluster-health.sh`.
+3. Trocar a senha root com `bash backend/scripts/rotate-root-password.sh`.
+4. Configurar backups com `bash backend/scripts/configure-vzdump.sh`.
+5. Atualizar certificados com `bash backend/scripts/update-pve-certs.sh`.
 6. Planejar 5º nó ou QDevice antes de depender do cluster.
-7. Só depois considerar `bash scripts/harden-ssh-key-only.sh`, quando chaves de acesso externas estiverem validadas.
+7. Só depois considerar `bash backend/scripts/harden-ssh-key-only.sh`, quando chaves de acesso externas estiverem validadas.
 
 ## Limites Atuais
 
