@@ -82,7 +82,7 @@ function renderLogin(error = "") {
         <h1>Secure cluster access</h1>
         <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
         ${error ? `<p class="error">${error}</p>` : ""}
-        <label><span>Usuário</span><input name="username" autocomplete="username" required></label>
+        <label><span>Usuário</span><input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
         <label><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
         <button class="primary-button" type="submit">Entrar</button>
       </form>
@@ -336,6 +336,15 @@ function renderTerminal() {
 function startHeroVideo() {
   const video = document.getElementById("clusteration-hero-video");
   if (!video) return;
+  // On phones the continuous HLS stream saturates the connection and the page
+  // appears stuck "loading" — drop it and keep the static scrim/glow background.
+  const isSmall = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+  const saveData = navigator.connection && navigator.connection.saveData;
+  if (isSmall || saveData) {
+    video.removeAttribute("autoplay");
+    video.remove();
+    return;
+  }
   const src = video.dataset.hlsSrc;
   if (!src) return;
   if (window.Hls && Hls.isSupported()) {
