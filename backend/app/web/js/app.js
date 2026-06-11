@@ -363,11 +363,112 @@ function startHeroVideo() {
   }
 }
 
-async function router() {
-  try {
-    await api("/api/auth/me");
-  } catch {
+function renderLanding() {
+  app.innerHTML = `
+    <div class="landing" id="landing">
+      <video id="landing-video" class="landing-video" muted playsinline preload="auto" data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"></video>
+      <div class="landing-scrim"></div>
+      <header class="landing-nav">
+        <a class="landing-logo" href="/login" data-login>clusteration<sup>®</sup><span class="landing-aster">✳︎</span></a>
+        <nav class="landing-links">
+          <a href="/login" data-login>Overview</a><span class="sep">, </span><a href="/login" data-login>Inventory</a><span class="sep">, </span><a href="/login" data-login>Docs</a>
+        </nav>
+        <a class="landing-getin" href="/login" data-login>Acessar painel</a>
+        <button class="landing-burger" type="button" aria-label="Abrir menu"><span></span><span></span><span></span></button>
+      </header>
+      <div class="landing-overlay">
+        <a href="/login" data-login>Overview</a>
+        <a href="/login" data-login>Inventory</a>
+        <a href="/login" data-login>Docs</a>
+        <a href="/login" data-login class="ov-getin">Acessar painel</a>
+      </div>
+      <main class="landing-hero">
+        <div class="landing-inner">
+          <p class="landing-intro">Secure cluster panel,<br>Clusteration · cluster.thiagaoai.online</p>
+          <p class="landing-type" data-typewriter="Painel single-tenant para provisionar, monitorar, acessar terminal e controlar suas VMs Proxmox com segurança."></p>
+          <div class="landing-pills">
+            <button class="lpill lpill-solid" type="button" data-login>Acessar painel</button>
+            <button class="lpill" type="button" data-login>Criar VM</button>
+            <button class="lpill" type="button" data-login>Ver inventário</button>
+            <button class="lpill" type="button" data-login>Abrir terminal</button>
+            <button class="lpill lpill-outline" type="button" data-copy="dockplus@dockplusai.com">Fale com a gente: <span class="lpill-u">dockplus@dockplusai.com</span><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></button>
+          </div>
+        </div>
+      </main>
+    </div>
+  `;
+  const goLogin = (event) => {
+    if (event) event.preventDefault();
+    document.body.classList.remove("landing-menu-open");
+    history.pushState(null, "", "/login");
+    renderLogin();
+  };
+  document.querySelectorAll("[data-login]").forEach((el) => el.addEventListener("click", goLogin));
+  const burger = document.querySelector(".landing-burger");
+  if (burger) burger.addEventListener("click", () => document.body.classList.toggle("landing-menu-open"));
+  runHeroEffects();
+  startLandingVideo();
+}
+
+function startLandingVideo() {
+  const video = document.getElementById("landing-video");
+  if (!video) return;
+  const isSmall = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+  if (isSmall || (navigator.connection && navigator.connection.saveData)) {
+    video.remove();
     return;
+  }
+  const src = video.dataset.hlsSrc;
+  if (!src) return;
+  const enableScrub = () => {
+    let targetTime = video.duration ? video.duration * 0.15 : 0;
+    let prevX = null;
+    let seeking = false;
+    const SENS = 0.8;
+    const doSeek = () => {
+      if (!video.duration) return;
+      if (Math.abs(video.currentTime - targetTime) < 0.02) { seeking = false; return; }
+      seeking = true;
+      try { video.currentTime = targetTime; } catch (_) { seeking = false; }
+    };
+    video.addEventListener("seeked", () => {
+      if (Math.abs(video.currentTime - targetTime) > 0.03) doSeek();
+      else seeking = false;
+    });
+    try { video.currentTime = targetTime; } catch (_) {}
+    window.addEventListener("mousemove", (event) => {
+      if (!document.getElementById("landing-video")) return;
+      if (prevX === null) { prevX = event.clientX; return; }
+      const delta = event.clientX - prevX;
+      prevX = event.clientX;
+      const dur = video.duration || 0;
+      if (!dur) return;
+      targetTime = Math.max(0, Math.min(dur, targetTime + (delta / window.innerWidth) * SENS * dur));
+      if (!seeking) doSeek();
+    });
+  };
+  if (window.Hls && Hls.isSupported()) {
+    const hls = new Hls({ enableWorker: false });
+    hls.loadSource(src);
+    hls.attachMedia(video);
+    video.addEventListener("loadedmetadata", enableScrub, { once: true });
+  } else {
+    video.src = src;
+    video.addEventListener("loadedmetadata", enableScrub, { once: true });
+  }
+}
+
+async function router() {
+  let authed = false;
+  try {
+    const res = await fetch("/api/auth/me", { credentials: "include", headers: { "Content-Type": "application/json" } });
+    authed = res.ok;
+  } catch {
+    authed = false;
+  }
+  if (!authed) {
+    if (window.location.pathname === "/login") return renderLogin();
+    return renderLanding();
   }
   if (window.location.pathname === "/vms/new") return renderNewVm();
   if (window.location.pathname === "/terminal") return renderTerminal();
