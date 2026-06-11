@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models import Job, JobStatus, JobType, SSHStatus, Template, VM, VMStatus
-from app.services.proxmox import ProxmoxClient
+from app.services.proxmox import ProxmoxClient, ProxmoxError
 
 
 def utcnow() -> datetime:
@@ -84,6 +84,21 @@ async def create_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, 
 
         vm.ip_address = await proxmox.wait_for_ip(vm.node, new_vmid)
         await db.commit()
+
+        # Cloud-init templates ship with a baked machine-id, so every clone requests the
+        # same DHCP lease and collides on one IP — which makes the backend SSH to itself
+        # and breaks the web console. Reset the machine-id (agent is reachable now) and
+        # reboot so this VM gets its own unique lease, then refresh the recorded IP.
+        try:
+            await proxmox.reset_machine_id(vm.node, new_vmid)
+            reboot_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{new_vmid}/status/reboot")
+            await set_job_meta(db, job, {"upid": reboot_upid, "node": vm.node, "operation": "reboot-uniq", "polled_at": iso_now()})
+            await proxmox.wait_for_task(vm.node, reboot_upid)
+            vm.ip_address = await proxmox.wait_for_ip(vm.node, new_vmid)
+            await db.commit()
+        except ProxmoxError:
+            # Non-fatal: the VM exists and runs; console SSH may need a manual reset.
+            pass
 
 
 async def power_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, operation: JobType) -> None:

@@ -105,6 +105,42 @@ class ProxmoxClient:
                 raise ProxmoxTimeoutError("guest-agent não retornou IP em 180s")
             await asyncio.sleep(interval)
 
+    async def agent_exec(self, node: str, vmid: int, script: str, timeout: float = 60.0) -> str:
+        """Run a shell script inside the guest via the qemu-guest-agent and return its stdout."""
+        started = await self.post(
+            f"/nodes/{node}/qemu/{vmid}/agent/exec",
+            data={"command": ["bash", "-c", script]},
+        )
+        pid = started.get("pid") if isinstance(started, dict) else None
+        if pid is None:
+            return ""
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + timeout
+        while True:
+            status = await self.get(
+                f"/nodes/{node}/qemu/{vmid}/agent/exec-status", params={"pid": pid}
+            )
+            if isinstance(status, dict) and status.get("exited"):
+                return str(status.get("out-data") or "")
+            if loop.time() >= deadline:
+                return ""
+            await asyncio.sleep(1.5)
+
+    async def reset_machine_id(self, node: str, vmid: int) -> None:
+        """Give the guest a fresh machine-id so it requests a unique DHCP lease.
+
+        Cloud-init templates ship with a baked machine-id; since the DHCP server keys
+        leases on the DUID (derived from machine-id), every clone otherwise collides on
+        the same IP, which breaks console SSH. Resetting it makes each VM get its own IP.
+        """
+        script = (
+            "rm -f /etc/machine-id /var/lib/dbus/machine-id && "
+            "systemd-machine-id-setup >/dev/null 2>&1 && "
+            "ln -sf /etc/machine-id /var/lib/dbus/machine-id && "
+            "echo reset-ok"
+        )
+        await self.agent_exec(node, vmid, script)
+
 
 def parse_first_ipv4(data: Any) -> str | None:
     interfaces = data.get("result") if isinstance(data, dict) else data
