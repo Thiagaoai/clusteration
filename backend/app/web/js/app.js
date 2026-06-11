@@ -119,15 +119,19 @@ async function renderDashboard() {
       <div class="dashboard-scrim"></div>
       <div class="grid-lines admin-grid-lines" aria-hidden="true"><span></span><span></span><span></span></div>
       <div class="dashboard-layout">
-        <section class="admin-hero-card">
+        <section class="admin-hero-card reveal">
           <div>
-            <p class="hero-eyebrow">Career-Ready Curriculum</p>
-            <h1>Cluster admin command center<span>.</span></h1>
-            <p class="hero-description">Painel single-tenant para provisionar, monitorar, acessar terminal e controlar lifecycle das suas VMs Proxmox com segurança.</p>
+            <a class="hero-badge" href="#inventory" data-route>
+              <span class="hero-badge-dot"></span>Cluster soberano · Proxmox VE 9.2<span class="hero-badge-arrow">→</span>
+            </a>
+            <h1>Cluster admin<br>command center<span>.</span></h1>
+            <p class="hero-type" data-typewriter="Provisione, monitore e abra o terminal das suas VMs Proxmox — em segundos, com segurança single-tenant."></p>
           </div>
-          <div class="hero-actions">
-            <a class="clusteration-cta" href="/vms/new" data-route>Create VM</a>
-            <a class="ghost-button" href="#inventory">View inventory</a>
+          <div class="hero-pills">
+            <a class="pill pill-solid" href="/vms/new" data-route>Criar VM</a>
+            <a class="pill" href="#inventory" data-route>Ver inventário</a>
+            <a class="pill" href="#inventory" data-route>Abrir terminal</a>
+            <button type="button" class="pill pill-outline" data-copy="cluster.thiagaoai.online">cluster.thiagaoai.online<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"></rect><path d="M5 15V5a2 2 0 0 1 2-2h10"></path></svg></button>
           </div>
         </section>
         <aside class="liquid-card admin-security-card" id="security">
@@ -154,7 +158,36 @@ async function renderDashboard() {
   bindShellEvents();
   bindDashboardActions();
   startHeroVideo();
+  runHeroEffects();
   if (hasTransient) setTimeout(renderDashboard, 5000);
+}
+
+function runHeroEffects() {
+  document.querySelectorAll("[data-typewriter]").forEach((el) => {
+    const text = el.getAttribute("data-typewriter") || "";
+    el.textContent = "";
+    const cursor = document.createElement("span");
+    cursor.className = "type-cursor";
+    el.appendChild(cursor);
+    let i = 0;
+    const tick = () => {
+      if (i < text.length) {
+        cursor.insertAdjacentText("beforebegin", text.charAt(i));
+        i += 1;
+        setTimeout(tick, 24);
+      } else {
+        cursor.remove();
+      }
+    };
+    setTimeout(tick, 420);
+  });
+  document.querySelectorAll("[data-copy]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      try { navigator.clipboard?.writeText(btn.getAttribute("data-copy") || ""); } catch (_) {}
+      btn.classList.add("copied");
+      setTimeout(() => btn.classList.remove("copied"), 1200);
+    });
+  });
 }
 
 function vmTable(vms) {

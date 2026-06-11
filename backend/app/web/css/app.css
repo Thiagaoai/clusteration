@@ -215,3 +215,32 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
   .login-logo { width: min(210px, 100%); }
 }
 
+/* ---------- Hero v2 — merged landing (badge + typewriter + pills) ---------- */
+.reveal { animation: hero-rise .72s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes hero-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+
+.hero-badge { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 24px; padding: 7px 15px; border-radius: 999px; border: 1px solid rgba(94,210,156,.30); background: rgba(94,210,156,.08); color: var(--green); font-size: 12px; font-weight: 700; letter-spacing: .005em; transition: background .2s ease, border-color .2s ease; }
+.hero-badge:hover { background: rgba(94,210,156,.16); border-color: rgba(94,210,156,.5); }
+.hero-badge-dot { width: 7px; height: 7px; border-radius: 999px; background: var(--green); box-shadow: 0 0 12px var(--green); flex: 0 0 auto; }
+.hero-badge-arrow { transition: transform .2s ease; }
+.hero-badge:hover .hero-badge-arrow { transform: translateX(4px); }
+
+.hero-type { max-width: 540px; margin-top: 22px; min-height: 54px; color: rgba(255,255,255,.76); font-size: clamp(15px, 1.55vw, 19px); line-height: 1.6; font-weight: 400; }
+.type-cursor { display: inline-block; width: 2px; height: 1.05em; margin-left: 2px; background: var(--green); vertical-align: -2px; animation: type-blink 1s step-end infinite; }
+@keyframes type-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+
+.hero-pills { display: flex; flex-wrap: wrap; gap: 10px; }
+.pill { display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.04); color: var(--ink); font-size: 13px; font-weight: 700; letter-spacing: .005em; white-space: nowrap; transition: background .2s ease, color .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease; }
+.pill:hover { background: #fff; color: #06120d; border-color: #fff; transform: translateY(-1px); }
+.pill-solid { background: var(--green); color: #06251a; border-color: var(--green); box-shadow: 0 16px 40px rgba(94,210,156,.22); }
+.pill-solid:hover { background: #7ff0c0; color: #06251a; border-color: #7ff0c0; }
+.pill-outline { background: transparent; border-color: rgba(255,255,255,.30); }
+.pill-outline svg { opacity: .65; }
+.pill-outline.copied { background: var(--green); color: #06251a; border-color: var(--green); }
+.pill-outline.copied svg { opacity: 1; }
+
+@media (max-width: 430px) {
+  .hero-pills { display: flex; }
+  .pill { flex: 1 1 auto; justify-content: center; }
+}
+
