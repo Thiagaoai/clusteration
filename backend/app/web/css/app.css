@@ -299,3 +299,25 @@ body.landing-menu-open .landing-overlay { opacity: 1; pointer-events: auto; }
   .landing-pills { gap: 7px; }
 }
 
+/* ----- Light (Mainframe) theme: off-white bg, black text, full-opacity video ----- */
+.landing-light { background: #f0f0ee; color: #0a0a0a; }
+.landing-light .landing-video { opacity: 1; }
+.landing-light .landing-logo { color: #0a0a0a; }
+.landing-light .landing-logo sup { opacity: .8; }
+.landing-light .landing-aster { color: #0a0a0a; font-size: clamp(25px, 2.6vw, 30px); }
+.landing-light .landing-links { color: #0a0a0a; font-size: clamp(17px, 1.6vw, 23px); }
+.landing-light .landing-links .sep { opacity: 1; }
+.landing-light .landing-getin { color: #0a0a0a; font-size: clamp(17px, 1.6vw, 23px); text-underline-offset: 2px; }
+.landing-light .landing-burger span { background: #0a0a0a; }
+.landing-light .landing-overlay { background: rgba(240,240,238,.95); backdrop-filter: blur(6px); }
+.landing-light .landing-overlay a { color: #0a0a0a; font-weight: 500; }
+.landing-light .landing-overlay .ov-getin { color: #0a0a0a; }
+.landing-light .landing-intro { color: #000; opacity: 1; }
+.landing-light .landing-type { color: #000; }
+.landing-light .landing-type .type-cursor { background: #000; }
+.landing-light .lpill { background: #fff; color: #000; border-color: rgba(0,0,0,.1); }
+.landing-light .lpill:hover { background: #000; color: #fff; border-color: #000; }
+.landing-light .lpill-outline { background: transparent; color: #0a0a0a; border-color: rgba(0,0,0,.4); }
+.landing-light .lpill-outline:hover { background: #0a0a0a; color: #fff; }
+.landing-light .lpill-outline.copied { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+

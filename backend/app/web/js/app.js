@@ -365,9 +365,8 @@ function startHeroVideo() {
 
 function renderLanding() {
   app.innerHTML = `
-    <div class="landing" id="landing">
-      <video id="landing-video" class="landing-video" muted playsinline preload="auto" data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"></video>
-      <div class="landing-scrim"></div>
+    <div class="landing landing-light" id="landing">
+      <video id="landing-video" class="landing-video" muted playsinline preload="auto" src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260530_042513_df96a13b-6155-4f6e-8b93-c9dee66fba08.mp4"></video>
       <header class="landing-nav">
         <a class="landing-logo" href="/login" data-login>clusteration<sup>®</sup><span class="landing-aster">✳︎</span></a>
         <nav class="landing-links">
@@ -384,10 +383,10 @@ function renderLanding() {
       </div>
       <main class="landing-hero">
         <div class="landing-inner">
-          <p class="landing-intro">Secure cluster panel,<br>Clusteration · cluster.thiagaoai.online</p>
+          <p class="landing-intro">Olá, esse é o Clusteration,<br>seu Secure Cluster Panel — cluster.thiagaoai.online</p>
           <p class="landing-type" data-typewriter="Painel single-tenant para provisionar, monitorar, acessar terminal e controlar suas VMs Proxmox com segurança."></p>
           <div class="landing-pills">
-            <button class="lpill lpill-solid" type="button" data-login>Acessar painel</button>
+            <button class="lpill" type="button" data-login>Acessar painel</button>
             <button class="lpill" type="button" data-login>Criar VM</button>
             <button class="lpill" type="button" data-login>Ver inventário</button>
             <button class="lpill" type="button" data-login>Abrir terminal</button>
@@ -413,13 +412,12 @@ function renderLanding() {
 function startLandingVideo() {
   const video = document.getElementById("landing-video");
   if (!video) return;
-  const isSmall = window.matchMedia && window.matchMedia("(max-width: 720px)").matches;
+  const isSmall = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
   if (isSmall || (navigator.connection && navigator.connection.saveData)) {
+    video.removeAttribute("src");
     video.remove();
     return;
   }
-  const src = video.dataset.hlsSrc;
-  if (!src) return;
   const enableScrub = () => {
     let targetTime = video.duration ? video.duration * 0.15 : 0;
     let prevX = null;
@@ -447,15 +445,9 @@ function startLandingVideo() {
       if (!seeking) doSeek();
     });
   };
-  if (window.Hls && Hls.isSupported()) {
-    const hls = new Hls({ enableWorker: false });
-    hls.loadSource(src);
-    hls.attachMedia(video);
-    video.addEventListener("loadedmetadata", enableScrub, { once: true });
-  } else {
-    video.src = src;
-    video.addEventListener("loadedmetadata", enableScrub, { once: true });
-  }
+  if (video.readyState >= 1 && video.duration) enableScrub();
+  else video.addEventListener("loadedmetadata", enableScrub, { once: true });
+  try { video.load(); } catch (_) {}
 }
 
 async function router() {
