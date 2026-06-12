@@ -23,10 +23,18 @@ async def seed_templates(db: AsyncSession, settings: Settings) -> None:
         {"os": "debian", "name": "debian-13-cloudinit-template", "proxmox_template_vmid": 9000},
         {"os": "ubuntu", "name": "ubuntu-2404-cloudinit-template", "proxmox_template_vmid": 9001},
     ]
-    existing = {row[0] for row in (await db.execute(select(Template.os))).all()}
+    existing = {row.os: row for row in (await db.scalars(select(Template))).all()}
     for item in seed:
-        if item["os"] not in existing:
+        row = existing.get(item["os"])
+        if row is None:
             db.add(Template(defaults={"enabled": True, "node": settings.PROXMOX_DEFAULT_NODE}, **item))
+        else:
+            # keep the clone-target node in sync with the configured default node,
+            # so changing PROXMOX_DEFAULT_NODE in the env propagates on next deploy
+            defaults = dict(row.defaults or {})
+            if defaults.get("node") != settings.PROXMOX_DEFAULT_NODE:
+                defaults["node"] = settings.PROXMOX_DEFAULT_NODE
+                row.defaults = defaults
     await db.commit()
 
 
