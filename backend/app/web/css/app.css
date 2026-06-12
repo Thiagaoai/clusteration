@@ -694,3 +694,138 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 [data-theme="dark"] .password-toggle:hover { color: #fff; }
 @media (max-width: 720px) { .password-field { grid-template-columns: minmax(0,1fr) 48px; } .password-toggle { width: 48px; min-height: 44px; } }
 
+/* ===========================================================================
+   ILLUMINATED 3D BUTTONS — glossy capsules, gold-lit rim + breathing halo,
+   deep bevel. Final override (wins the cascade). Applies in BOTH themes.
+   =========================================================================== */
+@keyframes btn-halo {
+  0%, 100% { box-shadow: inset 0 1px 0 rgba(255,255,255,.30), inset 0 -3px 7px rgba(0,0,0,.5), 0 9px 20px rgba(0,0,0,.34), 0 0 16px rgba(var(--accent-rgb), .28), 0 0 40px rgba(var(--accent-rgb), .14); }
+  50%      { box-shadow: inset 0 1px 0 rgba(255,255,255,.38), inset 0 -3px 7px rgba(0,0,0,.5), 0 11px 24px rgba(0,0,0,.38), 0 0 26px rgba(var(--accent-rgb), .55), 0 0 60px rgba(var(--accent-rgb), .30); }
+}
+
+.primary-button, .button, .clusteration-cta, .danger-button, .ghost-button,
+.lpill, .landing-light .lpill, .lpill-outline, .landing-light .lpill-outline,
+.pill-solid, .lpill-solid, .term-btn {
+  position: relative;
+  transition: transform .16s cubic-bezier(.2,.7,.2,1), box-shadow .24s ease, background .24s ease, color .18s ease, border-color .2s ease, filter .24s ease;
+}
+
+/* ---- PRIMARY / SOLID CTA (site + login + hero) : dark glossy capsule, gold halo ---- */
+.primary-button, .button, .clusteration-cta, .pill-solid, .lpill-solid,
+[data-theme="dark"] .primary-button, [data-theme="dark"] .button, [data-theme="dark"] .clusteration-cta, [data-theme="dark"] .pill-solid {
+  border: 1px solid rgba(var(--accent-rgb), .40) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, #3d3d42 0%, #18181b 52%, #050506 100%) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.30),
+    inset 0 -3px 7px rgba(0,0,0,.55),
+    0 9px 20px rgba(0,0,0,.36),
+    0 0 18px rgba(var(--accent-rgb), .30),
+    0 0 46px rgba(var(--accent-rgb), .16) !important;
+}
+.primary-button:hover, .button:hover, .clusteration-cta:hover, .pill-solid:hover, .lpill-solid:hover,
+[data-theme="dark"] .primary-button:hover, [data-theme="dark"] .button:hover, [data-theme="dark"] .clusteration-cta:hover, [data-theme="dark"] .pill-solid:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--accent-rgb), .80) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.30), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, #46464b 0%, #1c1c20 52%, #070708 100%) !important;
+  color: #fff !important;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.45),
+    inset 0 -3px 7px rgba(0,0,0,.55),
+    0 16px 34px rgba(0,0,0,.46),
+    0 0 30px rgba(var(--accent-rgb), .65),
+    0 0 70px rgba(var(--accent-rgb), .34) !important;
+}
+.primary-button:active, .button:active, .clusteration-cta:active, .pill-solid:active, .lpill-solid:active {
+  transform: translateY(1px) !important;
+  box-shadow: inset 0 2px 8px rgba(0,0,0,.6), inset 0 0 16px rgba(var(--accent-rgb), .3), 0 3px 9px rgba(0,0,0,.3) !important;
+}
+
+/* ---- LANDING main pills : same lit capsule + a gentle breathing glow ---- */
+.lpill, .landing-light .lpill {
+  border: 1px solid rgba(var(--accent-rgb), .42) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, #3d3d42 0%, #18181b 52%, #050506 100%) !important;
+  color: #fff !important;
+  animation: btn-halo 3.4s ease-in-out infinite;
+}
+.lpill:hover, .landing-light .lpill:hover {
+  transform: translateY(-3px);
+  border-color: rgba(var(--accent-rgb), .85) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.32), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, #4a4a50 0%, #1f1f23 52%, #080809 100%) !important;
+  color: #fff !important;
+  animation: none;
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.5),
+    inset 0 -3px 7px rgba(0,0,0,.5),
+    0 18px 38px rgba(0,0,0,.45),
+    0 0 32px rgba(var(--accent-rgb), .7),
+    0 0 76px rgba(var(--accent-rgb), .38) !important;
+}
+
+/* ---- OUTLINE / contact pill : luminous glass ---- */
+.lpill-outline, .landing-light .lpill-outline {
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.03)) !important;
+  border: 1px solid rgba(var(--accent-rgb), .5) !important;
+  color: #f4f4f2 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 7px 18px rgba(0,0,0,.3), 0 0 18px rgba(var(--accent-rgb), .2) !important;
+}
+.lpill-outline:hover, .landing-light .lpill-outline:hover {
+  transform: translateY(-2px);
+  background: linear-gradient(180deg, rgba(255,255,255,.18), rgba(255,255,255,.05)) !important;
+  border-color: rgba(var(--accent-rgb), .85) !important; color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 12px 28px rgba(0,0,0,.36), 0 0 30px rgba(var(--accent-rgb), .45) !important;
+}
+
+/* ---- DANGER : red glossy capsule with a red halo ---- */
+.danger-button, [data-theme="dark"] .danger-button {
+  border: 1px solid rgba(255,120,120,.55) !important;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.28), rgba(255,255,255,0) 46%),
+    linear-gradient(180deg, #ff6f6f 0%, #df2626 52%, #9f1414 100%) !important;
+  color: #fff !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.42), inset 0 -3px 7px rgba(120,0,0,.5), 0 9px 20px rgba(190,30,30,.36), 0 0 20px rgba(239,68,68,.42), 0 0 48px rgba(239,68,68,.2) !important;
+}
+.danger-button:hover, [data-theme="dark"] .danger-button:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.5), inset 0 -3px 7px rgba(120,0,0,.5), 0 16px 32px rgba(190,30,30,.44), 0 0 32px rgba(239,68,68,.7), 0 0 68px rgba(239,68,68,.34) !important;
+}
+
+/* ---- GHOST / secondary : luminous glass (light + dark) ---- */
+.ghost-button {
+  border: 1px solid rgba(var(--accent-rgb), .30) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(255,255,255,.72)) !important;
+  color: #0a0a0a !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), 0 6px 14px rgba(0,0,0,.1), 0 0 14px rgba(var(--accent-rgb), .1) !important;
+}
+.ghost-button:hover {
+  transform: translateY(-2px); border-color: rgba(var(--accent-rgb), .75) !important;
+  background: linear-gradient(180deg, #ffffff, #f4f0e6) !important; color: #0a0a0a !important;
+  box-shadow: inset 0 1px 0 #fff, 0 12px 26px rgba(0,0,0,.16), 0 0 24px rgba(var(--accent-rgb), .35) !important;
+}
+[data-theme="dark"] .ghost-button {
+  border: 1px solid rgba(var(--accent-rgb), .28) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.02)) !important;
+  color: #f3f3f1 !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.10), 0 6px 16px rgba(0,0,0,.42), 0 0 14px rgba(var(--accent-rgb), .12) !important;
+}
+[data-theme="dark"] .ghost-button:hover {
+  border-color: rgba(var(--accent-rgb), .7) !important; color: #fff !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.04)) !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 12px 28px rgba(0,0,0,.5), 0 0 26px rgba(var(--accent-rgb), .4) !important;
+}
+
+/* ---- terminal buttons : compact lit glass ---- */
+.term-btn { border: 1px solid rgba(var(--accent-rgb), .26) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 4px 10px rgba(0,0,0,.1), 0 0 12px rgba(var(--accent-rgb), .14) !important; }
+.term-btn:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(var(--accent-rgb), .65) !important; box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 10px 22px rgba(0,0,0,.18), 0 0 22px rgba(var(--accent-rgb), .36) !important; }
+[data-theme="dark"] .term-btn { box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.42), 0 0 12px rgba(var(--accent-rgb), .12) !important; }
+
+@media (prefers-reduced-motion: reduce) { .lpill, .landing-light .lpill { animation: none !important; } }
+
