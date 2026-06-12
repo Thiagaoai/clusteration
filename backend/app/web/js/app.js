@@ -17,7 +17,7 @@ const shell = (content) => `
   <div class="admin-shell">
     <aside class="admin-sidebar">
       <a href="/" class="admin-logo" aria-label="Clusteration painel">
-        <img src="/img/clusteration-logo.svg" alt="Clusteration">
+        <img src="/img/thiagao-cluster-icon.png" alt="Thiagao Ai Cluster">
       </a>
       <nav class="admin-nav" aria-label="Navegação principal">
         <a class="admin-nav-item" href="/" data-route><span>▦</span>Overview</a>
@@ -77,7 +77,7 @@ function renderLogin(error = "") {
         </svg>
       </section>
       <form class="card form-card login-card" id="login-form">
-        <img class="login-logo" src="/img/clusteration-logo.svg" alt="Clusteration">
+        <img class="login-logo" src="/img/thiagao-cluster-logo.png" alt="Thiagao Ai Cluster">
         <span class="eyebrow">Single-tenant admin</span>
         <h1>Secure cluster access</h1>
         <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
@@ -487,7 +487,7 @@ function renderLanding() {
     <div class="landing landing-light" id="landing">
       <video id="landing-video" class="landing-video" muted playsinline preload="auto" src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260530_042513_df96a13b-6155-4f6e-8b93-c9dee66fba08.mp4"></video>
       <header class="landing-nav">
-        <a class="landing-logo" href="/login" data-login>clusteration<sup>®</sup><span class="landing-aster">✳︎</span></a>
+        <a class="landing-logo" href="/login" data-login><img class="landing-logo-img" src="/img/thiagao-cluster-icon.png" alt="Thiagao Ai Cluster"></a>
         <nav class="landing-links">
           <a href="/login" data-login>Overview</a><span class="sep">, </span><a href="/login" data-login>Inventory</a><span class="sep">, </span><a href="/login" data-login>Docs</a>
         </nav>

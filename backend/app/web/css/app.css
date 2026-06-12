@@ -403,6 +403,13 @@ body { background: var(--bg); color: var(--ink); }
 .term-stage { position: relative; flex: 1 1 auto; min-height: 0; background: #0a0a0a; }
 .term-pane { position: absolute; inset: 0; padding: 6px 8px; }
 .term-pane .xterm, .term-pane .xterm-viewport, .term-pane .xterm-screen { height: 100% !important; width: 100% !important; }
+
+/* ---- Brand logo (Thiagao Ai Cluster) ---- */
+.admin-logo { width: auto; min-height: 0; gap: 10px; }
+.admin-logo img { width: auto; height: 46px; border-radius: 11px; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+.login-logo { width: min(180px, 58%); height: auto; border-radius: 18px; box-shadow: 0 8px 26px rgba(0,0,0,.1); }
+.landing-logo { align-items: center !important; }
+.landing-logo-img { height: 34px; width: auto; border-radius: 9px; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
 @media (max-width: 600px) {
   .term-btn { padding: 7px 11px; font-size: 11px; }
   .term-host { display: none; }
