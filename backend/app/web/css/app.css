@@ -442,9 +442,9 @@ body { background: var(--bg); color: var(--ink); }
 /* ============================== DARK THEME ============================== */
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --bg: #070b0a; --panel: #101513; --panel-soft: #151d1a; --ink: #f5f7f3;
-  --muted: rgba(255,255,255,.62); --line: rgba(255,255,255,.12);
-  --green: #5ed29c; --green-soft: #79b6a7; --amber: #d2a45f;
+  --bg: #0c0c0e; --panel: #161619; --panel-soft: #1c1c20; --ink: #f3f3f1;
+  --muted: rgba(255,255,255,.56); --line: rgba(255,255,255,.10);
+  --green: #ededea; --green-soft: #b9b9b6; --amber: #d2a45f;
 }
 /* shell */
 [data-theme="dark"] .admin-sidebar { background: rgba(7,11,10,.78); }
@@ -514,6 +514,65 @@ body { background: var(--bg); color: var(--ink); }
 [data-theme="dark"] .landing-light .landing-type .type-cursor { background: var(--green); }
 [data-theme="dark"] .landing-light .lpill-outline { color: #fff; border-color: rgba(255,255,255,.5); }
 [data-theme="dark"] .landing-light .lpill-outline:hover { background: #fff; color: #0a0a0a; }
+
+/* === Premium monochrome dark: neutralize the remaining green accents === */
+[data-theme="dark"] .status-dot { background: #e9e9e6; box-shadow: 0 0 14px rgba(255,255,255,.26); }
+[data-theme="dark"] .tenant-lock { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.04); }
+[data-theme="dark"] .hero-badge { border-color: rgba(255,255,255,.18); background: rgba(255,255,255,.05); color: rgba(255,255,255,.82); }
+[data-theme="dark"] .hero-badge:hover { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.3); }
+[data-theme="dark"] .hero-badge-dot { background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.5); }
+[data-theme="dark"] .admin-nav-item span { color: #e9e9e6; }
+[data-theme="dark"] .eyebrow, [data-theme="dark"] .hero-eyebrow { color: rgba(255,255,255,.72); }
+[data-theme="dark"] .admin-hero-card h1 span, [data-theme="dark"] .hero-content h1 span { color: #fff; }
+[data-theme="dark"] .admin-nav-item:hover, [data-theme="dark"] .admin-nav-item.active { background: rgba(255,255,255,.08); }
+[data-theme="dark"] .login-card { background: rgba(20,20,23,.97); }
+
+/* === 3D, softly-lit buttons (both themes) === */
+.primary-button, .button, .clusteration-cta {
+  background: linear-gradient(180deg, #2a2a2c, #0a0a0a);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.16), 0 8px 20px rgba(0,0,0,.18), 0 0 0 1px rgba(0,0,0,.04);
+}
+.primary-button:hover, .button:hover, .clusteration-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2), 0 12px 30px rgba(0,0,0,.24), 0 0 24px rgba(0,0,0,.12);
+}
+.danger-button { background: linear-gradient(180deg, #ef4444, #c01919); box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 8px 20px rgba(220,38,38,.24); }
+.danger-button:hover { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.28), 0 12px 28px rgba(220,38,38,.32); }
+.ghost-button, .lpill, .term-btn, .term-tab, .password-toggle { box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 2px 6px rgba(0,0,0,.06); }
+.ghost-button:hover, .lpill:hover, .term-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: inset 0 1px 0 rgba(255,255,255,.14), 0 8px 20px rgba(0,0,0,.16); }
+.lpill-solid { box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 10px 26px rgba(0,0,0,.16); }
+/* dark = premium white buttons with a faint glow */
+[data-theme="dark"] .primary-button, [data-theme="dark"] .button, [data-theme="dark"] .clusteration-cta, [data-theme="dark"] .pill-solid {
+  background: linear-gradient(180deg, #ffffff, #ececea); color: #0a0a0a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), 0 8px 22px rgba(0,0,0,.45), 0 0 18px rgba(255,255,255,.05);
+}
+[data-theme="dark"] .primary-button:hover, [data-theme="dark"] .button:hover, [data-theme="dark"] .clusteration-cta:hover {
+  background: linear-gradient(180deg, #fff, #f4f4f2);
+  box-shadow: inset 0 1px 0 #fff, 0 12px 30px rgba(0,0,0,.55), 0 0 26px rgba(255,255,255,.1);
+}
+[data-theme="dark"] .ghost-button, [data-theme="dark"] .term-btn, [data-theme="dark"] .term-tab, [data-theme="dark"] .password-toggle { box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 2px 8px rgba(0,0,0,.3); }
+[data-theme="dark"] .ghost-button:hover, [data-theme="dark"] .term-btn:hover:not(:disabled) { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.26); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.1), 0 8px 22px rgba(0,0,0,.4); }
+[data-theme="dark"] .term-btn:hover:not(:disabled), [data-theme="dark"] .term-tab.active { background: #ececea; color: #0a0a0a; border-color: #ececea; }
+[data-theme="dark"] .card { box-shadow: 0 1px 0 rgba(255,255,255,.03) inset, 0 22px 55px rgba(0,0,0,.4); }
+
+/* === Mobile: bigger, comfier action buttons + no clipping === */
+body, .app-body { overflow-x: hidden; }
+.admin-topbar > div { min-width: 0; }
+.admin-topbar strong { display: block; max-width: 56vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-hero-card h1, .hero-content h1 { overflow-wrap: anywhere; }
+@media (max-width: 720px) {
+  .admin-hero-card h1, .hero-content h1 { font-size: clamp(30px, 11vw, 46px); }
+  .liquid-card, .admin-security-card { transform: none; }
+  .admin-topbar strong { max-width: 72vw; }
+}
+@media (max-width: 600px) {
+  .actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 9px; }
+  .actions .primary-button, .actions .ghost-button, .actions .danger-button { width: 100%; min-height: 46px; font-size: 13px; border-radius: 13px; }
+  .table td.actions { padding-top: 4px; }
+}
+@media (max-width: 380px) {
+  .actions { grid-template-columns: 1fr; }
+}
 @media (max-width: 600px) {
   .term-btn { padding: 7px 11px; font-size: 11px; }
   .term-host { display: none; }
