@@ -203,7 +203,7 @@ function vmTable(vms) {
         <button class="ghost-button" data-action="start" data-id="${vm.id}" ${vm.actions.can_start ? "" : "disabled"}>Start</button>
         <button class="ghost-button" data-action="stop" data-id="${vm.id}" ${vm.actions.can_stop ? "" : "disabled"}>Stop</button>
         <button class="ghost-button" data-action="reboot" data-id="${vm.id}" ${vm.actions.can_reboot ? "" : "disabled"}>Reboot</button>
-        <button class="primary-button" data-terminal="${vm.id}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
+        <button class="primary-button" data-terminal="${vm.id}" data-hostname="${vm.hostname}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
         <button class="danger-button" data-delete="${vm.id}" data-hostname="${vm.hostname}" ${vm.actions.can_delete ? "" : "disabled"}>Delete</button>
       </td>
     </tr>
@@ -247,7 +247,9 @@ function bindDashboardActions() {
         return;
       }
       const data = await response.json();
-      history.pushState(null, "", `/terminal?session=${encodeURIComponent(data.session_id)}`);
+      const vm = encodeURIComponent(button.dataset.terminal);
+      const host = encodeURIComponent(button.dataset.hostname || "VM");
+      history.pushState(null, "", `/terminal?session=${encodeURIComponent(data.session_id)}&vm=${vm}&host=${host}`);
       router();
     });
   });
@@ -297,40 +299,157 @@ async function renderNewVm() {
 }
 
 function renderTerminal() {
-  const sessionId = new URLSearchParams(window.location.search).get("session");
-  app.innerHTML = shell(`
-    <div class="terminal-header card">
-      <div><span class="eyebrow">Console SSH</span><h1>Terminal</h1></div>
-      <span class="pill warn" id="terminal-status">connecting</span>
-    </div>
-    <div id="terminal" data-session="${sessionId || ""}"></div>
-  `);
-  bindShellEvents();
-  const container = document.getElementById("terminal");
-  const statusEl = document.getElementById("terminal-status");
-  const term = new Terminal({ convertEol: false, cursorBlink: true });
-  term.open(container);
-  term.focus();
-  const protocol = window.location.protocol === "https:" ? "wss" : "ws";
-  const ws = new WebSocket(`${protocol}://${window.location.host}/terminal/ws?session_id=${encodeURIComponent(sessionId)}`);
-  ws.binaryType = "arraybuffer";
-  ws.onmessage = (event) => {
-    if (typeof event.data === "string") {
-      const payload = JSON.parse(event.data);
-      if (payload.type === "status") statusEl.textContent = payload.status;
-      if (payload.type === "error") statusEl.textContent = payload.message;
-      if (payload.type === "close") statusEl.textContent = payload.reason;
+  const params = new URLSearchParams(window.location.search);
+  const sessionId = params.get("session");
+  const vmId = params.get("vm") || "";
+  const host = params.get("host") || "VM";
+  app.innerHTML = `
+    <section class="term-workspace" id="term-workspace">
+      <header class="term-bar">
+        <div class="term-bar-left">
+          <button class="term-btn" id="term-back" title="Voltar ao painel">‹ Painel</button>
+          <span class="term-host">${host}</span>
+        </div>
+        <div class="term-tabs" id="term-tabs"></div>
+        <div class="term-bar-right">
+          <button class="term-btn" id="term-newtab" title="Nova aba"${vmId ? "" : " disabled"}>+ Aba</button>
+          <button class="term-btn" id="term-full" title="Tela cheia">⛶ Tela cheia</button>
+        </div>
+      </header>
+      <div class="term-stage" id="term-stage"></div>
+    </section>
+  `;
+  const mgr = new TerminalWorkspace(vmId, document.getElementById("term-stage"), document.getElementById("term-tabs"));
+  document.getElementById("term-back").addEventListener("click", () => { mgr.destroy(); history.pushState(null, "", "/"); router(); });
+  document.getElementById("term-newtab").addEventListener("click", () => mgr.newTab());
+  document.getElementById("term-full").addEventListener("click", () => mgr.toggleFullscreen());
+  if (sessionId) mgr.addTab(sessionId);
+}
+
+class TerminalWorkspace {
+  constructor(vmId, stage, tabsEl) {
+    this.vmId = vmId;
+    this.stage = stage;
+    this.tabsEl = tabsEl;
+    this.tabs = [];
+    this.active = null;
+    this.seq = 0;
+    this._onResize = () => { this.syncHeight(); this.fitActive(); };
+    window.addEventListener("resize", this._onResize);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", this._onResize);
+    this.syncHeight();
+  }
+  syncHeight() {
+    const ws = document.getElementById("term-workspace");
+    if (ws && window.visualViewport) ws.style.height = window.visualViewport.height + "px";
+  }
+  async newTab() {
+    if (!this.vmId) return;
+    try {
+      const res = await api(`/api/vms/${this.vmId}/terminal/session`, { method: "POST" });
+      if (!res.ok) { alert("Não foi possível abrir uma nova aba agora."); return; }
+      const data = await res.json();
+      this.addTab(data.session_id);
+    } catch (_) { alert("Erro ao abrir nova aba."); }
+  }
+  addTab(sessionId) {
+    const id = ++this.seq;
+    const pane = document.createElement("div");
+    pane.className = "term-pane";
+    this.stage.appendChild(pane);
+    const term = new Terminal({ convertEol: false, cursorBlink: true, fontSize: 13, fontFamily: "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace", theme: { background: "#0a0a0a" } });
+    let fit = null;
+    try { fit = new FitAddon.FitAddon(); term.loadAddon(fit); } catch (_) {}
+    term.open(pane);
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const ws = new WebSocket(`${protocol}://${window.location.host}/terminal/ws?session_id=${encodeURIComponent(sessionId)}`);
+    ws.binaryType = "arraybuffer";
+    const tab = { id, sessionId, term, fit, ws, pane, status: "connecting", ping: null };
+    ws.onopen = () => { tab.status = "connected"; this.fitActive(); this.renderTabs(); };
+    ws.onmessage = (event) => {
+      if (typeof event.data === "string") {
+        try {
+          const p = JSON.parse(event.data);
+          if (p.type === "status") tab.status = p.status;
+          else if (p.type === "error") tab.status = p.message || "erro";
+          else if (p.type === "close") tab.status = p.reason || "fechado";
+          this.renderTabs();
+        } catch (_) {}
+        return;
+      }
+      term.write(new Uint8Array(event.data));
+    };
+    ws.onclose = () => { tab.status = "fechado"; this.renderTabs(); };
+    term.onData((d) => { if (ws.readyState === WebSocket.OPEN) ws.send(new TextEncoder().encode(d)); });
+    term.onResize(({ cols, rows }) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "resize", cols, rows })); });
+    tab.ping = setInterval(() => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" })); }, 20000);
+    this.tabs.push(tab);
+    this.activate(tab);
+  }
+  activate(tab) {
+    this.active = tab;
+    this.tabs.forEach((t) => { t.pane.style.display = t === tab ? "block" : "none"; });
+    this.renderTabs();
+    requestAnimationFrame(() => { this.fitActive(); try { tab.term.focus(); } catch (_) {} });
+  }
+  fitActive() {
+    const t = this.active;
+    if (!t || !t.fit) return;
+    try { t.fit.fit(); t.term.scrollToBottom(); } catch (_) {}
+  }
+  closeTab(tab) {
+    try { clearInterval(tab.ping); } catch (_) {}
+    try { tab.ws.close(); } catch (_) {}
+    try { tab.term.dispose(); } catch (_) {}
+    tab.pane.remove();
+    this.tabs = this.tabs.filter((t) => t !== tab);
+    if (this.active === tab) {
+      const next = this.tabs[this.tabs.length - 1];
+      if (next) { this.activate(next); return; }
+      this.destroy();
+      history.pushState(null, "", "/");
+      router();
       return;
     }
-    term.write(new Uint8Array(event.data));
-  };
-  term.onData((data) => ws.readyState === WebSocket.OPEN && ws.send(new TextEncoder().encode(data)));
-  term.onResize(({ cols, rows }) => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "resize", cols, rows }));
-  });
-  setInterval(() => {
-    if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "ping" }));
-  }, 20000);
+    this.renderTabs();
+  }
+  renderTabs() {
+    if (!this.tabsEl) return;
+    this.tabsEl.innerHTML = "";
+    this.tabs.forEach((t, i) => {
+      const cls = t.status === "connected" ? "ok" : (t.status === "connecting" ? "wait" : "off");
+      const btn = document.createElement("button");
+      btn.className = "term-tab" + (t === this.active ? " active" : "");
+      btn.innerHTML = `<span class="term-tab-dot ${cls}"></span>Aba ${i + 1}<span class="term-tab-x" data-x>×</span>`;
+      btn.addEventListener("click", (event) => {
+        if (event.target && event.target.hasAttribute("data-x")) { event.stopPropagation(); this.closeTab(t); return; }
+        this.activate(t);
+      });
+      this.tabsEl.appendChild(btn);
+    });
+  }
+  toggleFullscreen() {
+    const el = document.getElementById("term-workspace");
+    if (!el) return;
+    if (document.fullscreenElement) {
+      if (document.exitFullscreen) document.exitFullscreen();
+    } else if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => el.classList.toggle("term-fs"));
+    } else {
+      el.classList.toggle("term-fs");
+    }
+    setTimeout(() => this.fitActive(), 140);
+  }
+  destroy() {
+    window.removeEventListener("resize", this._onResize);
+    if (window.visualViewport) window.visualViewport.removeEventListener("resize", this._onResize);
+    this.tabs.forEach((t) => {
+      try { clearInterval(t.ping); } catch (_) {}
+      try { t.ws.close(); } catch (_) {}
+      try { t.term.dispose(); } catch (_) {}
+    });
+    this.tabs = [];
+  }
 }
 
 function startHeroVideo() {

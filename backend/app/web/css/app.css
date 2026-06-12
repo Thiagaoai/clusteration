@@ -382,3 +382,30 @@ body { background: var(--bg); color: var(--ink); }
 
 #terminal { background: #0a0a0a; border: 1px solid var(--line); }
 
+/* ---- Terminal workspace: multi-tab, fullscreen, mobile-stable ---- */
+.term-workspace { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; background: var(--bg); height: 100dvh; }
+.term-bar { display: flex; align-items: center; gap: 10px; padding: 8px 12px; min-height: 52px; border-bottom: 1px solid var(--line); background: rgba(255,255,255,.9); backdrop-filter: blur(10px); }
+.term-bar-left, .term-bar-right { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.term-host { font-weight: 700; font-size: 13px; color: #0a0a0a; max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.term-btn { border: 1px solid rgba(0,0,0,.14); background: #fff; color: #0a0a0a; border-radius: 999px; padding: 7px 13px; font-size: 12px; font-weight: 700; white-space: nowrap; transition: background .15s ease, color .15s ease, border-color .15s ease; }
+.term-btn:hover:not(:disabled) { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+.term-btn:disabled { opacity: .45; cursor: not-allowed; }
+.term-tabs { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; overflow-x: auto; scrollbar-width: none; }
+.term-tabs::-webkit-scrollbar { display: none; }
+.term-tab { display: inline-flex; align-items: center; gap: 7px; border: 1px solid rgba(0,0,0,.12); background: #fff; color: #333; border-radius: 10px; padding: 6px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.term-tab.active { background: #0a0a0a; color: #fff; border-color: #0a0a0a; }
+.term-tab-dot { width: 7px; height: 7px; border-radius: 999px; background: #94a3b8; flex: 0 0 auto; }
+.term-tab-dot.ok { background: #22c55e; }
+.term-tab-dot.wait { background: #f59e0b; }
+.term-tab-dot.off { background: #ef4444; }
+.term-tab-x { margin-left: 2px; opacity: .6; font-size: 15px; line-height: 1; }
+.term-tab-x:hover { opacity: 1; }
+.term-stage { position: relative; flex: 1 1 auto; min-height: 0; background: #0a0a0a; }
+.term-pane { position: absolute; inset: 0; padding: 6px 8px; }
+.term-pane .xterm, .term-pane .xterm-viewport, .term-pane .xterm-screen { height: 100% !important; width: 100% !important; }
+@media (max-width: 600px) {
+  .term-btn { padding: 7px 11px; font-size: 11px; }
+  .term-host { display: none; }
+  .term-bar { gap: 7px; padding: 7px 9px; }
+}
+
