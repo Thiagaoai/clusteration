@@ -23,6 +23,7 @@ from app.models import (
     VMStatus,
 )
 from app.schemas.vms import DeleteVM, ExposureCreate, JobOut, VMCreate, VMOut
+from app.services.lifecycle import enqueue_ssh_check
 from app.workers.inprocess import enqueue
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_admin)])
@@ -80,7 +81,19 @@ async def create_vm(payload: VMCreate, db: AsyncSession = Depends(get_db)):
 @router.get("/vms")
 async def list_vms(db: AsyncSession = Depends(get_db)):
     vms = (await db.scalars(select(VM).where(VM.deleted_at.is_(None)).order_by(VM.created_at.desc()))).all()
-    return {"vms": [serialize_vm(vm) for vm in vms]}
+    errors: dict[uuid.UUID, str] = {}
+    if vms:
+        jobs = (
+            await db.scalars(
+                select(Job)
+                .where(Job.vm_id.in_([vm.id for vm in vms]), Job.error.is_not(None))
+                .order_by(Job.created_at.desc())
+            )
+        ).all()
+        for job in jobs:
+            if job.vm_id is not None:
+                errors.setdefault(job.vm_id, job.error)
+    return {"vms": [serialize_vm(vm, errors.get(vm.id)) for vm in vms]}
 
 
 @router.get("/templates")
@@ -192,6 +205,18 @@ async def create_terminal_session(vm_id: uuid.UUID, db: AsyncSession = Depends(g
     }
 
 
+@router.post("/vms/{vm_id}/ssh-check", status_code=202)
+async def recheck_ssh(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+    vm = await get_live_vm(db, vm_id)
+    if vm.status != VMStatus.running.value:
+        raise AppHTTPException("INVALID_STATE", "a VM precisa estar running para checar o SSH", 409)
+    vm.ssh_status = SSHStatus.pending.value
+    await db.commit()
+    job = await enqueue_ssh_check(db, vm.id)
+    await enqueue({"type": JobType.ssh_readiness_check.value, "job_id": str(job.id), "vm_id": str(vm.id)})
+    return {"job_id": str(job.id), "status": "queued"}
+
+
 @router.get("/vms/{vm_id}/exposures")
 async def list_exposures(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
     await get_live_vm(db, vm_id)
@@ -238,13 +263,16 @@ async def enqueue_power_job(db: AsyncSession, vm: VM, job_type: JobType):
     return {"job_id": str(job.id), "status": "queued"}
 
 
-def serialize_vm(vm: VM) -> VMOut:
+def serialize_vm(vm: VM, last_error: str | None = None) -> VMOut:
+    running = vm.status == VMStatus.running.value
+    ssh_ready = vm.ssh_status == SSHStatus.ready.value
     actions = {
         "can_start": vm.status in (VMStatus.stopped.value, VMStatus.error.value),
-        "can_stop": vm.status == VMStatus.running.value,
-        "can_reboot": vm.status == VMStatus.running.value,
-        "can_terminal": vm.status == VMStatus.running.value and vm.ssh_status == SSHStatus.ready.value,
+        "can_stop": running,
+        "can_reboot": running,
+        "can_terminal": running and ssh_ready,
         "can_delete": vm.status in (VMStatus.running.value, VMStatus.stopped.value, VMStatus.error.value),
+        "can_recheck": running and not ssh_ready,
     }
     return VMOut(
         id=vm.id,
@@ -258,5 +286,6 @@ def serialize_vm(vm: VM) -> VMOut:
         ip_address=vm.ip_address,
         created_at=vm.created_at,
         actions=actions,
+        last_error=last_error if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
     )
 

@@ -16,29 +16,29 @@ const api = async (path, options = {}) => {
 const shell = (content) => `
   <div class="admin-shell">
     <aside class="admin-sidebar">
-      <a href="/" class="admin-logo" aria-label="Clusteration painel">
+      <a href="/" class="admin-logo" aria-label="Thiagao Ai Cluster">
         <img src="/img/thiagao-cluster-icon.png" alt="Thiagao Ai Cluster">
       </a>
       <nav class="admin-nav" aria-label="Navegação principal">
-        <a class="admin-nav-item" href="/" data-route><span>▦</span>Overview</a>
-        <a class="admin-nav-item" href="/vms/new" data-route><span>＋</span>Create VM</a>
-        <a class="admin-nav-item" href="/#inventory" data-route><span>⌁</span>Inventory</a>
+        <a class="admin-nav-item" href="/" data-route><span>▦</span>Visão geral</a>
+        <a class="admin-nav-item" href="/vms/new" data-route><span>＋</span>Criar VM</a>
+        <a class="admin-nav-item" href="/#inventory" data-route><span>⌁</span>Inventário</a>
       </nav>
       <div class="tenant-lock">
         <span class="status-dot"></span>
         <div>
-          <strong>Single tenant</strong>
-          <small>Admin session required</small>
+          <strong>Tenant único</strong>
+          <small>Sessão admin obrigatória</small>
         </div>
       </div>
     </aside>
     <div class="admin-workspace">
       <header class="admin-topbar">
         <div>
-          <span>Secure cluster panel</span>
-          <strong>Clusteration / cluster.thiagaoai.online</strong>
+          <span>Painel seguro de cluster</span>
+          <strong>Thiagao Ai Cluster / cluster.thiagaoai.online</strong>
         </div>
-        <button class="ghost-button" type="button" data-logout>Logout</button>
+        <button class="ghost-button" type="button" data-logout>Sair</button>
       </header>
       <main>${content}</main>
     </div>
@@ -78,8 +78,8 @@ function renderLogin(error = "") {
       </section>
       <form class="card form-card login-card" id="login-form">
         <img class="login-logo" src="/img/thiagao-cluster-logo.png" alt="Thiagao Ai Cluster">
-        <span class="eyebrow">Single-tenant admin</span>
-        <h1>Secure cluster access</h1>
+        <span class="eyebrow">Admin · tenant único</span>
+        <h1>Acesso seguro ao cluster</h1>
         <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
         ${error ? `<p class="error">${error}</p>` : ""}
         <label><span>Usuário</span><input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
@@ -124,7 +124,7 @@ async function renderDashboard() {
             <a class="hero-badge" href="#inventory" data-route>
               <span class="hero-badge-dot"></span>Cluster soberano · Proxmox VE 9.2<span class="hero-badge-arrow">→</span>
             </a>
-            <h1>Cluster admin<br>command center<span>.</span></h1>
+            <h1>Central de comando<br>do cluster<span>.</span></h1>
             <p class="hero-type" data-typewriter="Provisione, monitore e abra o terminal das suas VMs Proxmox — em segundos, com segurança single-tenant."></p>
           </div>
           <div class="hero-pills">
@@ -136,21 +136,21 @@ async function renderDashboard() {
         </section>
         <aside class="liquid-card admin-security-card" id="security">
           <span>[ 2025 ]</span>
-          <h2>Private <em>Cluster</em> Operations</h2>
+          <h2>Operações <em>privadas</em> do cluster</h2>
           <p>Login obrigatório antes de inventário, terminal SSH e ações críticas de VM.</p>
         </aside>
       </div>
     </section>
     <section class="content dashboard-content" id="inventory">
       <section class="stats-grid">
-        <article class="card stat-card green"><span>Running VMs</span><strong>${vms.filter((vm) => vm.status === "running").length}</strong><small>Compute online now</small></article>
-        <article class="card stat-card blue"><span>Total inventory</span><strong>${vms.length}</strong><small>Managed VM records</small></article>
-        <article class="card stat-card amber"><span>Lifecycle jobs</span><strong>${hasTransient ? "Sim" : "Não"}</strong><small>Auto-refresh when active</small></article>
-        <article class="card stat-card slate"><span>Access mode</span><strong>Private</strong><small>Single-tenant admin</small></article>
+        <article class="card stat-card green"><span>VMs ativas</span><strong>${vms.filter((vm) => vm.status === "running").length}</strong><small>Compute online agora</small></article>
+        <article class="card stat-card blue"><span>Inventário total</span><strong>${vms.length}</strong><small>VMs gerenciadas</small></article>
+        <article class="card stat-card amber"><span>Jobs em andamento</span><strong>${hasTransient ? "Sim" : "Não"}</strong><small>Atualiza sozinho quando ativo</small></article>
+        <article class="card stat-card slate"><span>Modo de acesso</span><strong>Privado</strong><small>Admin · tenant único</small></article>
       </section>
       <section class="section-header">
-        <div><span class="eyebrow">Compute operations</span><h1>VM inventory and actions</h1><p>Start, stop, reboot, open terminal sessions, and delete only after authenticated admin access.</p></div>
-        <a class="primary-button" href="/vms/new" data-route>Create VM</a>
+        <div><span class="eyebrow">Operações de compute</span><h1>Inventário e ações de VM</h1><p>Ligar, desligar, reiniciar, abrir terminal e excluir — tudo após login de admin.</p></div>
+        <a class="primary-button" href="/vms/new" data-route>Criar VM</a>
       </section>
       ${vmTable(vms)}
     </section>
@@ -190,21 +190,30 @@ function runHeroEffects() {
   });
 }
 
+function esc(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+
+const STATUS_LABEL = { running: "ativa", stopped: "parada", error: "erro", creating: "criando", provisioning: "provisionando", starting: "ligando", stopping: "desligando", rebooting: "reiniciando", deleting: "excluindo", deleted: "excluída" };
+function statusLabel(s) { return STATUS_LABEL[s] || s; }
+function sshBadge(s) { return s === "ready" ? "badge-running" : (s === "failed" ? "badge-failed" : "badge-pending"); }
+
 function vmTable(vms) {
   const rows = vms.map((vm) => `
     <tr>
-      <td data-label="Hostname"><strong>${vm.hostname}</strong></td>
-      <td data-label="Status"><span class="badge badge-${vm.status}">${vm.status}</span></td>
-      <td data-label="SSH">${vm.ssh_status}</td>
-      <td data-label="IP">${vm.ip_address || "-"}</td>
-      <td data-label="Template">${vm.template}</td>
-      <td data-label="Recursos">${vm.cpu} CPU / ${vm.memory_mb} MB / ${vm.disk_gb} GB</td>
+      <td data-label="Hostname"><strong>${esc(vm.hostname)}</strong>${vm.last_error ? `<div class="vm-error" title="${esc(vm.last_error)}">⚠ ${esc(vm.last_error)}</div>` : ""}</td>
+      <td data-label="Status"><span class="badge badge-${vm.status}">${statusLabel(vm.status)}</span></td>
+      <td data-label="SSH"><span class="badge ${sshBadge(vm.ssh_status)}">${esc(vm.ssh_status)}</span></td>
+      <td data-label="IP">${esc(vm.ip_address) || "—"}</td>
+      <td data-label="Template">${esc(vm.template)}</td>
+      <td data-label="Recursos">${vm.cpu} CPU · ${vm.memory_mb} MB · ${vm.disk_gb} GB</td>
       <td class="actions" data-label="Ações">
-        <button class="ghost-button" data-action="start" data-id="${vm.id}" ${vm.actions.can_start ? "" : "disabled"}>Start</button>
-        <button class="ghost-button" data-action="stop" data-id="${vm.id}" ${vm.actions.can_stop ? "" : "disabled"}>Stop</button>
-        <button class="ghost-button" data-action="reboot" data-id="${vm.id}" ${vm.actions.can_reboot ? "" : "disabled"}>Reboot</button>
-        <button class="primary-button" data-terminal="${vm.id}" data-hostname="${vm.hostname}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
-        <button class="danger-button" data-delete="${vm.id}" data-hostname="${vm.hostname}" ${vm.actions.can_delete ? "" : "disabled"}>Delete</button>
+        <button class="ghost-button" data-action="start" data-id="${vm.id}" ${vm.actions.can_start ? "" : "disabled"}>Ligar</button>
+        <button class="ghost-button" data-action="stop" data-id="${vm.id}" ${vm.actions.can_stop ? "" : "disabled"}>Desligar</button>
+        <button class="ghost-button" data-action="reboot" data-id="${vm.id}" ${vm.actions.can_reboot ? "" : "disabled"}>Reiniciar</button>
+        ${vm.actions.can_recheck ? `<button class="ghost-button" data-recheck="${vm.id}">Re-checar SSH</button>` : ""}
+        <button class="primary-button" data-terminal="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
+        <button class="danger-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_delete ? "" : "disabled"}>Excluir</button>
       </td>
     </tr>
   `).join("");
@@ -214,44 +223,119 @@ function vmTable(vms) {
       <div class="table-wrap">
         <table class="table">
           <thead><tr><th>Hostname</th><th>Status</th><th>SSH</th><th>IP</th><th>Template</th><th>Recursos</th><th>Ações</th></tr></thead>
-          <tbody>${rows || `<tr><td colspan="7" class="empty">Nenhuma VM criada.</td></tr>`}</tbody>
+          <tbody>${rows || `<tr><td colspan="7" class="empty">Nenhuma VM criada ainda.</td></tr>`}</tbody>
         </table>
       </div>
     </section>
   `;
 }
 
+async function errMsg(res) {
+  try { const j = await res.json(); return j?.error?.message || null; } catch (_) { return null; }
+}
+
+async function withLoading(button, fn) {
+  if (button.dataset.loading === "1") return;
+  button.dataset.loading = "1";
+  button.classList.add("is-loading");
+  button.disabled = true;
+  try { await fn(); }
+  finally {
+    if (document.body.contains(button)) {
+      button.dataset.loading = "0";
+      button.classList.remove("is-loading");
+      button.disabled = false;
+    }
+  }
+}
+
+function toast(message, type = "ok") {
+  let wrap = document.getElementById("toasts");
+  if (!wrap) { wrap = document.createElement("div"); wrap.id = "toasts"; wrap.className = "toasts"; document.body.appendChild(wrap); }
+  const el = document.createElement("div");
+  el.className = `toast toast-${type}`;
+  el.textContent = message;
+  wrap.appendChild(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 250); }, 3400);
+}
+
+function confirmModal({ title, body, confirmText = "Confirmar", cancelText = "Cancelar", danger = false, requireText = null }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <h3>${esc(title)}</h3>
+        <div class="modal-body">${body}</div>
+        ${requireText ? `<input class="modal-input" type="text" placeholder="${esc(requireText)}" autocapitalize="none" autocorrect="off" spellcheck="false">` : ""}
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-cancel>${esc(cancelText)}</button>
+          <button class="${danger ? "danger-button" : "primary-button"}" type="button" data-confirm ${requireText ? "disabled" : ""}>${esc(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const input = overlay.querySelector(".modal-input");
+    const confirmBtn = overlay.querySelector("[data-confirm]");
+    const close = (val) => { overlay.remove(); document.removeEventListener("keydown", onKey); resolve(val); };
+    const onKey = (e) => { if (e.key === "Escape") close(false); };
+    document.addEventListener("keydown", onKey);
+    if (input) {
+      input.addEventListener("input", () => { confirmBtn.disabled = input.value !== requireText; });
+      setTimeout(() => input.focus(), 30);
+    }
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) close(false); });
+    overlay.querySelector("[data-cancel]").addEventListener("click", () => close(false));
+    confirmBtn.addEventListener("click", () => { if (requireText && input.value !== requireText) return; close(true); });
+  });
+}
+
 function bindDashboardActions() {
   document.querySelectorAll("[data-action]").forEach((button) => {
-    button.addEventListener("click", async () => {
-      await api(`/api/vms/${button.dataset.id}/${button.dataset.action}`, { method: "POST" });
+    button.addEventListener("click", () => withLoading(button, async () => {
+      const res = await api(`/api/vms/${button.dataset.id}/${button.dataset.action}`, { method: "POST" });
+      if (!res.ok) { toast(await errMsg(res) || "Ação não permitida agora.", "error"); return; }
+      toast(`VM ${({ start: "ligando", stop: "desligando", reboot: "reiniciando" }[button.dataset.action] || "processando")}…`);
       renderDashboard();
-    });
+    }));
+  });
+  document.querySelectorAll("[data-recheck]").forEach((button) => {
+    button.addEventListener("click", () => withLoading(button, async () => {
+      const res = await api(`/api/vms/${button.dataset.recheck}/ssh-check`, { method: "POST" });
+      if (!res.ok) { toast(await errMsg(res) || "Não foi possível checar o SSH.", "error"); return; }
+      toast("Re-checando o SSH da VM…");
+      renderDashboard();
+    }));
   });
   document.querySelectorAll("[data-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
-      const confirmHostname = prompt(`Digite ${button.dataset.hostname} para deletar a VM:`);
-      if (confirmHostname !== button.dataset.hostname) return;
-      await api(`/api/vms/${button.dataset.delete}`, {
-        method: "DELETE",
-        body: JSON.stringify({ confirm_hostname: confirmHostname }),
+      const host = button.dataset.hostname;
+      const ok = await confirmModal({
+        title: "Excluir VM",
+        body: `Isso apaga a VM <strong>${esc(host)}</strong> <strong>permanentemente</strong> no Proxmox (disco incluído). Digite o hostname para confirmar:`,
+        confirmText: "Excluir VM",
+        danger: true,
+        requireText: host,
       });
-      renderDashboard();
+      if (!ok) return;
+      await withLoading(button, async () => {
+        const res = await api(`/api/vms/${button.dataset.delete}`, { method: "DELETE", body: JSON.stringify({ confirm_hostname: host }) });
+        if (!res.ok) { toast(await errMsg(res) || "Erro ao excluir.", "error"); return; }
+        toast("VM em exclusão…");
+        renderDashboard();
+      });
     });
   });
   document.querySelectorAll("[data-terminal]").forEach((button) => {
-    button.addEventListener("click", async () => {
+    button.addEventListener("click", () => withLoading(button, async () => {
       const response = await api(`/api/vms/${button.dataset.terminal}/terminal/session`, { method: "POST" });
-      if (!response.ok) {
-        alert("Terminal ainda não está disponível.");
-        return;
-      }
+      if (!response.ok) { toast(await errMsg(response) || "Terminal ainda não está pronto.", "error"); return; }
       const data = await response.json();
       const vm = encodeURIComponent(button.dataset.terminal);
       const host = encodeURIComponent(button.dataset.hostname || "VM");
       history.pushState(null, "", `/terminal?session=${encodeURIComponent(data.session_id)}&vm=${vm}&host=${host}`);
       router();
-    });
+    }));
   });
 }
 

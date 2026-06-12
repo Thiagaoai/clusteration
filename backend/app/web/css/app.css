@@ -410,6 +410,28 @@ body { background: var(--bg); color: var(--ink); }
 .login-logo { width: min(180px, 58%); height: auto; border-radius: 18px; box-shadow: 0 8px 26px rgba(0,0,0,.1); }
 .landing-logo { align-items: center !important; }
 .landing-logo-img { height: 34px; width: auto; border-radius: 9px; display: block; box-shadow: 0 2px 8px rgba(0,0,0,.1); }
+
+/* ---- Toasts ---- */
+.toasts { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+.toast { pointer-events: auto; min-width: 220px; max-width: 92vw; padding: 12px 16px; border-radius: 12px; font-size: 13px; font-weight: 600; color: #fff; background: #0a0a0a; box-shadow: 0 16px 40px rgba(0,0,0,.22); opacity: 0; transform: translateY(8px); transition: opacity .2s ease, transform .2s ease; }
+.toast.show { opacity: 1; transform: none; }
+.toast-error { background: #b91c1c; }
+
+/* ---- Modal ---- */
+.modal-overlay { position: fixed; inset: 0; z-index: 190; display: grid; place-items: center; padding: 18px; background: rgba(10,10,12,.45); backdrop-filter: blur(3px); }
+.modal { width: min(440px, 100%); background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 22px; box-shadow: 0 30px 80px rgba(0,0,0,.28); }
+.modal h3 { margin: 0 0 10px; color: #0a0a0a; font-size: 19px; }
+.modal-body { color: rgba(10,10,14,.72); font-size: 14px; line-height: 1.55; }
+.modal-body strong { color: #0a0a0a; }
+.modal-input { width: 100%; margin-top: 14px; min-height: 42px; border: 1px solid var(--line); border-radius: 10px; padding: 0 12px; background: #fff; color: #0a0a0a; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+/* ---- button loading spinner + vm error ---- */
+.is-loading { position: relative; color: transparent !important; pointer-events: none; }
+.is-loading::after { content: ""; position: absolute; width: 14px; height: 14px; top: 50%; left: 50%; margin: -7px 0 0 -7px; border: 2px solid rgba(0,0,0,.25); border-top-color: #0a0a0a; border-radius: 999px; animation: btn-spin .6s linear infinite; }
+.primary-button.is-loading::after, .danger-button.is-loading::after, .pill-solid.is-loading::after, .lpill-solid.is-loading::after { border-color: rgba(255,255,255,.45); border-top-color: #fff; }
+@keyframes btn-spin { to { transform: rotate(360deg); } }
+.vm-error { margin-top: 5px; max-width: 340px; color: #b91c1c; font-size: 11.5px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
 @media (max-width: 600px) {
   .term-btn { padding: 7px 11px; font-size: 11px; }
   .term-host { display: none; }

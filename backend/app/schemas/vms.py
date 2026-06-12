@@ -27,6 +27,7 @@ class VMActions(BaseModel):
     can_reboot: bool
     can_terminal: bool
     can_delete: bool
+    can_recheck: bool = False
 
 
 class VMOut(BaseModel):
@@ -41,6 +42,7 @@ class VMOut(BaseModel):
     ip_address: str | None
     created_at: datetime | None
     actions: VMActions
+    last_error: str | None = None
 
 
 class JobOut(BaseModel):
