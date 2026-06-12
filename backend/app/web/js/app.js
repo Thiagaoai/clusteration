@@ -1,5 +1,21 @@
 const app = document.getElementById("app");
 
+const THEME_KEY = "tac-theme";
+function currentTheme() { try { return localStorage.getItem(THEME_KEY) || "light"; } catch (_) { return "light"; } }
+function applyTheme(t) { document.documentElement.dataset.theme = t; try { localStorage.setItem(THEME_KEY, t); } catch (_) {} }
+function toggleTheme() { applyTheme(currentTheme() === "dark" ? "light" : "dark"); }
+function themeIcon() { return currentTheme() === "dark" ? "☀" : "☾"; }
+function bindThemeToggle() {
+  document.querySelectorAll("[data-theme-toggle]").forEach((btn) => {
+    btn.addEventListener("click", (event) => {
+      toggleTheme();
+      document.querySelectorAll("[data-theme-toggle]").forEach((b) => { b.textContent = themeIcon(); });
+      event.stopPropagation();
+    });
+  });
+}
+applyTheme(currentTheme());
+
 const api = async (path, options = {}) => {
   const response = await fetch(path, {
     credentials: "include",
@@ -38,7 +54,10 @@ const shell = (content) => `
           <span>Painel seguro de cluster</span>
           <strong>Thiagao Ai Cluster / cluster.thiagaoai.online</strong>
         </div>
-        <button class="ghost-button" type="button" data-logout>Sair</button>
+        <div class="topbar-actions">
+          <button class="ghost-button icon-btn" type="button" data-theme-toggle aria-label="Alternar tema claro/escuro">${themeIcon()}</button>
+          <button class="ghost-button" type="button" data-logout>Sair</button>
+        </div>
       </header>
       <main>${content}</main>
     </div>
@@ -57,6 +76,7 @@ function bindShellEvents() {
     await api("/api/auth/logout", { method: "POST" });
     renderLogin();
   });
+  bindThemeToggle();
 }
 
 function renderLogin(error = "") {
@@ -576,6 +596,7 @@ function renderLanding() {
           <a href="/login" data-login>Overview</a><span class="sep">, </span><a href="/login" data-login>Inventory</a><span class="sep">, </span><a href="/login" data-login>Docs</a>
         </nav>
         <a class="landing-getin" href="/login" data-login>Acessar painel</a>
+        <button class="landing-theme" type="button" data-theme-toggle aria-label="Alternar tema">${themeIcon()}</button>
         <button class="landing-burger" type="button" aria-label="Abrir menu"><span></span><span></span><span></span></button>
       </header>
       <div class="landing-overlay">
@@ -608,6 +629,7 @@ function renderLanding() {
   document.querySelectorAll("[data-login]").forEach((el) => el.addEventListener("click", goLogin));
   const burger = document.querySelector(".landing-burger");
   if (burger) burger.addEventListener("click", () => document.body.classList.toggle("landing-menu-open"));
+  bindThemeToggle();
   runHeroEffects();
   startLandingVideo();
 }
