@@ -579,3 +579,118 @@ body, .app-body { overflow-x: hidden; }
   .term-bar { gap: 7px; padding: 7px 9px; }
 }
 
+/* ============================================================================
+   PREMIUM REFINISH — zero green, champagne-gold signature accent, deep 3D
+   (authoritative overrides, appended last so they win the cascade)
+   ============================================================================ */
+:root {
+  --accent: #8a6d2f;                 /* readable bronze-gold on the warm off-white */
+  --accent-2: #b8924a;               /* brighter gold for fills/glows */
+  --accent-rgb: 184,146,74;
+  --green: #8a6d2f;                  /* repoint every legacy "green" accent to gold */
+  --green-soft: rgba(184,146,74,.55);
+}
+:root[data-theme="dark"] {
+  --accent: #e7cd96;                 /* champagne gold pops on near-black */
+  --accent-2: #f1ddae;
+  --accent-rgb: 231,205,150;
+  --green: #e7cd96;
+  --green-soft: rgba(231,205,150,.5);
+}
+
+/* focus ring + ambient glow -> gold, no green */
+button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible { outline-color: rgba(var(--accent-rgb), .45); }
+.admin-shell { background: radial-gradient(circle at 72% -2%, rgba(var(--accent-rgb), .10), transparent 40%), var(--bg); }
+[data-theme="dark"] .admin-shell { background: radial-gradient(circle at 72% -2%, rgba(var(--accent-rgb), .08), transparent 42%), var(--bg); }
+
+/* decorative accents that must read gold in BOTH themes (beat old dark white overrides) */
+.eyebrow, .hero-eyebrow,
+[data-theme="dark"] .eyebrow, [data-theme="dark"] .hero-eyebrow { color: var(--accent); }
+.admin-nav-item span, [data-theme="dark"] .admin-nav-item span { color: var(--accent); }
+.admin-hero-card h1 span, .hero-content h1 span,
+[data-theme="dark"] .admin-hero-card h1 span, [data-theme="dark"] .hero-content h1 span { color: var(--accent); }
+.status-dot, [data-theme="dark"] .status-dot { background: var(--accent); box-shadow: 0 0 16px rgba(var(--accent-rgb), .55); }
+.hero-badge, [data-theme="dark"] .hero-badge { border-color: rgba(var(--accent-rgb), .34); background: rgba(var(--accent-rgb), .08); color: var(--accent); }
+.hero-badge:hover, [data-theme="dark"] .hero-badge:hover { background: rgba(var(--accent-rgb), .15); border-color: rgba(var(--accent-rgb), .5); }
+.hero-badge-dot, [data-theme="dark"] .hero-badge-dot { background: var(--accent); box-shadow: 0 0 12px rgba(var(--accent-rgb), .6); }
+.type-cursor, [data-theme="dark"] .type-cursor,
+.landing-type .type-cursor, [data-theme="dark"] .landing-light .landing-type .type-cursor { background: var(--accent); }
+.stat-card { border-top-color: rgba(var(--accent-rgb), .5); }
+.stat-card.green { border-top-color: var(--accent); }
+.tenant-lock { border-color: rgba(var(--accent-rgb), .3); background: rgba(var(--accent-rgb), .08); }
+[data-theme="dark"] .tenant-lock { border-color: rgba(var(--accent-rgb), .22); background: rgba(var(--accent-rgb), .06); }
+.admin-nav-item:hover, .admin-nav-item.active,
+[data-theme="dark"] .admin-nav-item:hover, [data-theme="dark"] .admin-nav-item.active { background: rgba(var(--accent-rgb), .12); }
+
+/* "running / online" status -> gold (no green); other states unchanged */
+.badge-running, .pill.good,
+[data-theme="dark"] .badge-running, [data-theme="dark"] .pill.good { color: var(--accent); background: rgba(var(--accent-rgb), .16); }
+.term-tab-dot.ok { background: var(--accent); }
+
+/* landing / hero solid pills -> gold */
+.pill-solid, .lpill-solid { background: var(--accent); color: #0a0a0a; border-color: var(--accent); box-shadow: 0 14px 34px rgba(var(--accent-rgb), .30); }
+.pill-solid:hover, .lpill-solid:hover { background: var(--accent-2); border-color: var(--accent-2); color: #0a0a0a; }
+.lpill-outline.copied, .pill-outline.copied { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+
+/* ---------------- DEEP 3D, softly-lit buttons (both themes) ---------------- */
+.primary-button, .button, .clusteration-cta, .danger-button, .ghost-button, .pill, .lpill, .term-btn, .password-toggle {
+  transition: transform .14s cubic-bezier(.2,.7,.2,1), box-shadow .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+}
+/* primary (ink) — light */
+.primary-button, .button, .clusteration-cta {
+  background: linear-gradient(180deg, #3a3a3d 0%, #161618 48%, #050505 100%); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.22), inset 0 -2px 0 rgba(0,0,0,.55), 0 10px 22px rgba(0,0,0,.28), 0 2px 4px rgba(0,0,0,.30);
+}
+.primary-button:hover, .button:hover, .clusteration-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.28), inset 0 -2px 0 rgba(0,0,0,.55), 0 16px 34px rgba(0,0,0,.36), 0 3px 8px rgba(0,0,0,.30);
+}
+.primary-button:active, .button:active, .clusteration-cta:active, .danger-button:active, .ghost-button:active {
+  transform: translateY(1px); box-shadow: inset 0 2px 5px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.12), 0 3px 8px rgba(0,0,0,.22);
+}
+/* danger (red) — sculpted */
+.danger-button {
+  background: linear-gradient(180deg, #ff6a6a 0%, #e02424 52%, #a81414 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.35), inset 0 -2px 0 rgba(120,0,0,.5), 0 10px 22px rgba(200,30,30,.32), 0 2px 4px rgba(0,0,0,.2);
+}
+.danger-button:hover { transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.45), inset 0 -2px 0 rgba(120,0,0,.5), 0 16px 32px rgba(200,30,30,.4); }
+/* ghost / outline / pills — raised glass */
+.ghost-button, .lpill, .term-btn, .pill {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.7), 0 3px 8px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+}
+.ghost-button:hover, .lpill:hover, .term-btn:hover:not(:disabled), .pill:hover {
+  transform: translateY(-2px); box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 10px 22px rgba(0,0,0,.16);
+}
+/* DARK: premium brushed-white primary with a faint gold-warm glow */
+[data-theme="dark"] .primary-button, [data-theme="dark"] .button, [data-theme="dark"] .clusteration-cta, [data-theme="dark"] .pill-solid {
+  background: linear-gradient(180deg, #ffffff 0%, #f2f1ee 55%, #d9d8d3 100%); color: #0a0a0a;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.95), inset 0 -2px 0 rgba(0,0,0,.18), 0 10px 26px rgba(0,0,0,.5), 0 0 22px rgba(var(--accent-rgb), .12);
+}
+[data-theme="dark"] .primary-button:hover, [data-theme="dark"] .button:hover, [data-theme="dark"] .clusteration-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 0 #fff, inset 0 -2px 0 rgba(0,0,0,.18), 0 16px 36px rgba(0,0,0,.6), 0 0 30px rgba(var(--accent-rgb), .20);
+}
+[data-theme="dark"] .ghost-button, [data-theme="dark"] .term-btn, [data-theme="dark"] .pill {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 4px 10px rgba(0,0,0,.4);
+}
+[data-theme="dark"] .ghost-button:hover, [data-theme="dark"] .term-btn:hover:not(:disabled), [data-theme="dark"] .pill:hover {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), 0 12px 26px rgba(0,0,0,.55);
+}
+/* dark hover / active accents -> gold, never green */
+[data-theme="dark"] .ghost-button:hover { border-color: rgba(var(--accent-rgb), .4); color: #fff; }
+[data-theme="dark"] .term-btn:hover:not(:disabled), [data-theme="dark"] .term-tab.active { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+[data-theme="dark"] .pill-solid:hover { background: var(--accent-2); }
+
+/* ---------------- eye (reveal) button for password fields ---------------- */
+.password-field { grid-template-columns: minmax(0,1fr) 46px; gap: 8px; }
+.password-toggle {
+  min-width: 0; width: 46px; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 11px; border: 1px solid var(--line); background: var(--panel-soft); color: var(--muted);
+}
+.password-toggle:hover { background: var(--bg); color: var(--ink); border-color: rgba(var(--accent-rgb), .5); }
+.password-toggle.revealed { color: var(--accent); border-color: rgba(var(--accent-rgb), .55); }
+.password-toggle svg { display: block; }
+[data-theme="dark"] .password-toggle { background: var(--panel-soft); color: var(--muted); border-color: var(--line); }
+[data-theme="dark"] .password-toggle:hover { color: #fff; }
+@media (max-width: 720px) { .password-field { grid-template-columns: minmax(0,1fr) 48px; } .password-toggle { width: 48px; min-height: 44px; } }
+

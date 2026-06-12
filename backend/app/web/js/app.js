@@ -16,6 +16,25 @@ function bindThemeToggle() {
 }
 applyTheme(currentTheme());
 
+// ----- password reveal (eye) toggle, shared by login + create-VM -----
+const EYE_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3.2"/></svg>';
+const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.94 17.94A10.5 10.5 0 0 1 12 20C5 20 1 12 1 12a18.6 18.6 0 0 1 5.06-5.94M9.9 4.24A9.5 9.5 0 0 1 12 4c7 0 11 8 11 8a18.7 18.7 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+function pwToggle() { return `<button type="button" class="password-toggle" data-pw-toggle aria-label="Mostrar senha" title="Mostrar senha">${EYE_ICON}</button>`; }
+document.addEventListener("click", (event) => {
+  const btn = event.target.closest && event.target.closest("[data-pw-toggle]");
+  if (!btn) return;
+  event.preventDefault();
+  const field = btn.closest(".password-field");
+  const input = field && field.querySelector("input");
+  if (!input) return;
+  const reveal = input.type === "password";
+  input.type = reveal ? "text" : "password";
+  btn.innerHTML = reveal ? EYE_OFF_ICON : EYE_ICON;
+  btn.setAttribute("aria-label", reveal ? "Ocultar senha" : "Mostrar senha");
+  btn.setAttribute("title", reveal ? "Ocultar senha" : "Mostrar senha");
+  btn.classList.toggle("revealed", reveal);
+});
+
 const api = async (path, options = {}) => {
   const response = await fetch(path, {
     credentials: "include",
@@ -103,7 +122,7 @@ function renderLogin(error = "") {
         <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
         ${error ? `<p class="error">${error}</p>` : ""}
         <label><span>Usuário</span><input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
-        <label><span>Senha</span><input name="password" type="password" autocomplete="current-password" required></label>
+        <label><span>Senha</span><div class="password-field"><input name="password" type="password" autocomplete="current-password" required>${pwToggle()}</div></label>
         <button class="primary-button" type="submit">Entrar</button>
       </form>
     </main>
@@ -370,11 +389,11 @@ async function renderNewVm() {
     <div class="card form-card">
       ${options.missing_runtime.length ? `<p class="error">Ambiente Proxmox ainda não configurado: ${options.missing_runtime.join(", ")}.</p>` : ""}
       <form id="create-vm-form" class="form form-grid">
-        <label><span>Hostname</span><input name="hostname" pattern="[A-Za-z0-9]([A-Za-z0-9\-]{0,126}[A-Za-z0-9])?" required></label>
+        <label><span>Hostname</span><input name="hostname" pattern="[a-zA-Z0-9](-?[a-zA-Z0-9]){0,126}" title="letras, números e hífen (não pode começar/terminar com hífen)" required></label>
         <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${template.os}" ${template.enabled ? "" : "disabled"}>${template.name}</option>`).join("")}</select></label>
         <label><span>Tamanho</span><select name="size">${Object.entries(options.sizes).map(([key, size]) => `<option value="${key}">${size.label}</option>`).join("")}</select></label>
         <label><span>Disco</span><select name="disk_gb">${options.disk_choices.map((gb) => `<option value="${gb}">${gb} GB</option>`).join("")}</select></label>
-        <label><span>Senha root</span><input id="root-password" name="root_password" type="password" minlength="8" required></label>
+        <label><span>Senha root</span><div class="password-field"><input id="root-password" name="root_password" type="password" minlength="8" required>${pwToggle()}</div></label>
         <div class="form-actions">
           <a class="ghost-button" href="/" data-route>Cancelar</a>
           <button class="primary-button" type="submit" ${options.missing_runtime.length ? "disabled" : ""}>Criar VM</button>
