@@ -531,10 +531,21 @@ function renderLanding() {
 function startLandingVideo() {
   const video = document.getElementById("landing-video");
   if (!video) return;
-  const isSmall = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
-  if (isSmall || (navigator.connection && navigator.connection.saveData)) {
+  // Respect data-saver only; otherwise the hero video appears everywhere.
+  if (navigator.connection && navigator.connection.saveData) {
     video.removeAttribute("src");
     video.remove();
+    return;
+  }
+  const isSmall = window.matchMedia && window.matchMedia("(max-width: 768px)").matches;
+  if (isSmall) {
+    // Touch devices have no mouse to scrub: gently autoplay/loop so the visual still shows.
+    video.setAttribute("loop", "");
+    video.muted = true;
+    const playMobile = () => video.play().catch(() => {});
+    if (video.readyState >= 2) playMobile();
+    else video.addEventListener("loadeddata", playMobile, { once: true });
+    try { video.load(); } catch (_) {}
     return;
   }
   const enableScrub = () => {
