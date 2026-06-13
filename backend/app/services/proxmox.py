@@ -139,7 +139,21 @@ class ProxmoxClient:
             "ln -sf /etc/machine-id /var/lib/dbus/machine-id && "
             "echo reset-ok"
         )
-        await self.agent_exec(node, vmid, script)
+        # The guest-exec channel lags the network agent by ~20-40s right after boot
+        # (cloud-init / systemd still settling), so the very first attempt during a
+        # create often fails. Poll until the reset actually lands.
+        last_exc: Exception | None = None
+        for _ in range(15):
+            try:
+                out = await self.agent_exec(node, vmid, script)
+                if "reset-ok" in out:
+                    return
+            except ProxmoxError as exc:
+                last_exc = exc
+            await asyncio.sleep(6.0)
+        if last_exc is not None:
+            raise last_exc
+        raise ProxmoxError("reset de machine-id não confirmou (guest-exec indisponível)")
 
 
 def parse_first_ipv4(data: Any) -> str | None:
