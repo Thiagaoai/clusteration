@@ -1,4 +1,5 @@
 const app = document.getElementById("app");
+let dashboardRefresh = null;
 
 const THEME_KEY = "tac-theme";
 function currentTheme() { try { return localStorage.getItem(THEME_KEY) || "light"; } catch (_) { return "light"; } }
@@ -198,7 +199,8 @@ async function renderDashboard() {
   bindDashboardActions();
   startHeroVideo();
   runHeroEffects();
-  if (hasTransient) setTimeout(renderDashboard, 5000);
+  clearTimeout(dashboardRefresh);
+  if (hasTransient) dashboardRefresh = setTimeout(() => { if (window.location.pathname === "/") renderDashboard(); }, 5000);
 }
 
 function runHeroEffects() {
@@ -706,6 +708,7 @@ function startLandingVideo() {
 }
 
 async function router() {
+  clearTimeout(dashboardRefresh);
   let authed = false;
   try {
     const res = await fetch("/api/auth/me", { credentials: "include", headers: { "Content-Type": "application/json" } });

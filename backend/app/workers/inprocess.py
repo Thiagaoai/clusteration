@@ -69,7 +69,9 @@ async def dispatch(payload: dict) -> None:
                 job.status = JobStatus.success.value
                 await db.commit()
         except Exception as exc:
-            if vm is not None and job.type != JobType.delete_vm.value:
+            if vm is not None:
+                # a failed delete must not leave the VM stuck in "deleting" forever
+                # (that state keeps the dashboard auto-refreshing) — surface it as error
                 vm.status = VMStatus.error.value
             job.status = JobStatus.failed.value
             job.error = sanitize_job_error(exc)
