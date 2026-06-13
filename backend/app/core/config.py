@@ -21,6 +21,11 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "sqlite+aiosqlite:///./vmpanel.db"
 
+    # Automated SQLite backups (no-op when DATABASE_URL is not sqlite)
+    BACKUP_DIR: str = "/data/backups"
+    BACKUP_INTERVAL_HOURS: int = 6
+    BACKUP_KEEP: int = 28
+
     PROXMOX_HOST: str = "https://10.1.10.209:8006"
     PROXMOX_TOKEN_ID: str = ""
     PROXMOX_TOKEN_SECRET: str = ""

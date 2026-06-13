@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,20 +24,39 @@ from app.core.errors import (
     validation_exception_handler,
 )
 from app.db.session import AsyncSessionLocal, get_db
+from app.services.backup import backup_loop
 from app.services.lifecycle import mark_orphaned_running_as_failed, seed_templates
 from app.services.terminal import terminal_websocket
 from app.workers.inprocess import requeue_queued_jobs, worker_loop
 
 
+def _assert_durable_db(settings) -> None:
+    """In production, refuse to boot on an ephemeral SQLite path (data-loss guard)."""
+    if settings.ENVIRONMENT != "production":
+        return
+    try:
+        url = make_url(settings.DATABASE_URL)
+    except Exception:
+        return
+    if url.get_backend_name() == "sqlite" and not (url.database or "").startswith("/data"):
+        raise RuntimeError(
+            f"Produção com SQLite fora de /data ({url.database!r}) — risco de perda de dados. "
+            "Configure DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db (volume persistente) ou use Postgres."
+        )
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    _assert_durable_db(get_settings())
     async with AsyncSessionLocal() as db:
         await seed_templates(db, get_settings())
         await mark_orphaned_running_as_failed(db)
     worker_task = asyncio.create_task(worker_loop())
+    backup_task = asyncio.create_task(backup_loop(get_settings()))
     await requeue_queued_jobs()
     yield
     worker_task.cancel()
+    backup_task.cancel()
 
 
 settings = get_settings()
@@ -68,6 +88,17 @@ async def spa_no_cache(request, call_next):
     is_api = path.startswith(("/api", "/health", "/terminal"))
     if not is_api and request.method in ("GET", "HEAD"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    return response
+
+
+@app.middleware("http")
+async def security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if settings.ENVIRONMENT == "production":
+        response.headers.setdefault("Strict-Transport-Security", "max-age=31536000")
     return response
 
 
