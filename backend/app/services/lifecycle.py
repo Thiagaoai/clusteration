@@ -45,6 +45,20 @@ async def mark_orphaned_running_as_failed(db: AsyncSession) -> None:
     for job in jobs:
         job.status = JobStatus.failed.value
         job.error = "job interrompido por restart do serviço"
+    # A restart kills in-flight work, so any VM left in a transient state (e.g. stuck
+    # in "deleting") would never recover — and a perpetually-transient VM keeps the
+    # dashboard auto-refreshing. Surface them as error so they can be acted on again.
+    transient = (
+        VMStatus.creating.value,
+        VMStatus.provisioning.value,
+        VMStatus.starting.value,
+        VMStatus.stopping.value,
+        VMStatus.rebooting.value,
+        VMStatus.deleting.value,
+    )
+    stuck = (await db.scalars(select(VM).where(VM.status.in_(transient), VM.deleted_at.is_(None)))).all()
+    for vm in stuck:
+        vm.status = VMStatus.error.value
     await db.commit()
 
 
