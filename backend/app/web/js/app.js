@@ -59,6 +59,7 @@ const shell = (content) => `
         <a class="admin-nav-item" href="/" data-route><span>▦</span>Visão geral</a>
         <a class="admin-nav-item" href="/vms/new" data-route><span>＋</span>Criar VM</a>
         <a class="admin-nav-item" href="/#inventory" data-route><span>⌁</span>Inventário</a>
+        <a class="admin-nav-item" href="/atividade" data-route><span>◷</span>Atividade</a>
       </nav>
       <div class="tenant-lock">
         <span class="status-dot"></span>
@@ -423,6 +424,53 @@ async function renderNewVm() {
   });
 }
 
+const AUDIT_LABELS = {
+  "vm.create": "Criou VM", "vm.delete": "Excluiu VM", "vm.start": "Ligou VM",
+  "vm.stop": "Desligou VM", "vm.reboot": "Reiniciou VM",
+  "auth.login": "Login", "auth.login_failed": "Login falhou",
+  "auth.login_blocked": "Login bloqueado", "auth.logout": "Logout",
+};
+function auditLabel(a) { return AUDIT_LABELS[a] || a; }
+function auditBadge(a) {
+  if (a === "vm.delete" || a === "auth.login_failed" || a === "auth.login_blocked") return "badge-error";
+  if (a === "vm.create") return "badge-running";
+  return "";
+}
+function auditRow(e) {
+  const when = e.created_at ? new Date(e.created_at).toLocaleString() : "—";
+  const target = e.target_label ? esc(e.target_label) : (e.target_type ? esc(e.target_type) : "—");
+  const detail = e.detail && Object.keys(e.detail).length ? esc(JSON.stringify(e.detail)) : "—";
+  return `<tr>
+    <td data-label="Quando">${esc(when)}</td>
+    <td data-label="Ação"><span class="badge ${auditBadge(e.action)}">${esc(auditLabel(e.action))}</span></td>
+    <td data-label="Alvo"><strong>${target}</strong></td>
+    <td data-label="Usuário">${esc(e.actor || "—")}</td>
+    <td data-label="Origem">${esc(e.source_ip || "—")}</td>
+    <td data-label="Detalhes"><code style="font-size:11px; word-break:break-all">${detail}</code></td>
+  </tr>`;
+}
+
+async function renderAudit() {
+  const response = await api("/api/audit?limit=200");
+  const { events } = await response.json();
+  app.innerHTML = shell(`
+    <section class="section-header">
+      <div><span class="eyebrow">Auditoria</span><h1>Atividade</h1><p>Registro imutável de ações administrativas — quem fez o quê, em qual VM, de onde e quando.</p></div>
+    </section>
+    <div class="card">
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>Quando</th><th>Ação</th><th>Alvo</th><th>Usuário</th><th>Origem (IP)</th><th>Detalhes</th></tr></thead>
+          <tbody>
+            ${events.length ? events.map(auditRow).join("") : `<tr><td class="empty" colspan="6">Nenhuma atividade registrada ainda.</td></tr>`}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `);
+  bindShellEvents();
+}
+
 function renderTerminal() {
   const params = new URLSearchParams(window.location.search);
   const sessionId = params.get("session");
@@ -721,6 +769,7 @@ async function router() {
     return renderLanding();
   }
   if (window.location.pathname === "/vms/new") return renderNewVm();
+  if (window.location.pathname === "/atividade") return renderAudit();
   if (window.location.pathname === "/terminal") return renderTerminal();
   return renderDashboard();
 }

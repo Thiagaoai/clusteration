@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -11,6 +11,7 @@ from app.core.errors import AppHTTPException
 from app.core.readiness import missing_runtime_settings
 from app.db.session import get_db
 from app.models import (
+    AuditEvent,
     Job,
     JobStatus,
     JobType,
@@ -23,6 +24,7 @@ from app.models import (
     VMStatus,
 )
 from app.schemas.vms import DeleteVM, ExposureCreate, JobOut, VMCreate, VMOut
+from app.services.audit import record_audit
 from app.services.lifecycle import enqueue_ssh_check
 from app.workers.inprocess import enqueue
 
@@ -30,7 +32,7 @@ router = APIRouter(prefix="/api", dependencies=[Depends(require_admin)])
 
 
 @router.post("/vms", status_code=201)
-async def create_vm(payload: VMCreate, db: AsyncSession = Depends(get_db)):
+async def create_vm(payload: VMCreate, request: Request, db: AsyncSession = Depends(get_db)):
     settings = get_settings()
     missing = missing_runtime_settings(settings)
     if missing:
@@ -64,6 +66,7 @@ async def create_vm(payload: VMCreate, db: AsyncSession = Depends(get_db)):
     await db.flush()
     job = Job(type=JobType.create_vm.value, status=JobStatus.queued.value, vm_id=vm.id, meta={})
     db.add(job)
+    await _audit_vm(db, request, "vm.create", vm, template=payload.template, size=payload.size, disk_gb=payload.disk_gb)
     await db.commit()
     await db.refresh(vm)
     await db.refresh(job)
@@ -127,37 +130,52 @@ async def readiness():
     return {"ready": not missing, "missing": missing}
 
 
+@router.get("/audit")
+async def list_audit(db: AsyncSession = Depends(get_db), limit: int = 100, offset: int = 0):
+    limit = max(1, min(limit, 500))
+    offset = max(0, offset)
+    rows = (
+        await db.scalars(
+            select(AuditEvent).order_by(AuditEvent.created_at.desc()).limit(limit).offset(offset)
+        )
+    ).all()
+    return {"events": [serialize_audit(event) for event in rows]}
+
+
 @router.get("/vms/{vm_id}")
 async def get_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> VMOut:
     return serialize_vm(await get_live_vm(db, vm_id))
 
 
 @router.post("/vms/{vm_id}/start", status_code=202)
-async def start_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def start_vm(vm_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db)):
     vm = await get_live_vm(db, vm_id)
     if vm.status not in (VMStatus.stopped.value, VMStatus.error.value):
         raise AppHTTPException("INVALID_STATE", "VM não pode ser iniciada neste estado", 409)
+    await _audit_vm(db, request, "vm.start", vm)
     return await enqueue_power_job(db, vm, JobType.start_vm)
 
 
 @router.post("/vms/{vm_id}/stop", status_code=202)
-async def stop_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def stop_vm(vm_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db)):
     vm = await get_live_vm(db, vm_id)
     if vm.status != VMStatus.running.value:
         raise AppHTTPException("INVALID_STATE", "VM não está running", 409)
+    await _audit_vm(db, request, "vm.stop", vm)
     return await enqueue_power_job(db, vm, JobType.stop_vm)
 
 
 @router.post("/vms/{vm_id}/reboot", status_code=202)
-async def reboot_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)):
+async def reboot_vm(vm_id: uuid.UUID, request: Request, db: AsyncSession = Depends(get_db)):
     vm = await get_live_vm(db, vm_id)
     if vm.status != VMStatus.running.value:
         raise AppHTTPException("INVALID_STATE", "VM não está running", 409)
+    await _audit_vm(db, request, "vm.reboot", vm)
     return await enqueue_power_job(db, vm, JobType.reboot_vm)
 
 
 @router.delete("/vms/{vm_id}", status_code=202)
-async def delete_vm(vm_id: uuid.UUID, payload: DeleteVM, db: AsyncSession = Depends(get_db)):
+async def delete_vm(vm_id: uuid.UUID, payload: DeleteVM, request: Request, db: AsyncSession = Depends(get_db)):
     vm = await get_live_vm(db, vm_id)
     if payload.confirm_hostname != vm.hostname:
         raise AppHTTPException("HOSTNAME_MISMATCH", "hostname de confirmação não confere", 400)
@@ -165,6 +183,7 @@ async def delete_vm(vm_id: uuid.UUID, payload: DeleteVM, db: AsyncSession = Depe
         raise AppHTTPException("INVALID_STATE", "VM não pode ser deletada neste estado", 409)
     job = Job(type=JobType.delete_vm.value, status=JobStatus.queued.value, vm_id=vm.id, meta={})
     db.add(job)
+    await _audit_vm(db, request, "vm.delete", vm, proxmox_vmid=vm.proxmox_vmid, ip_address=vm.ip_address, node=vm.node, status_before=vm.status)
     await db.commit()
     await db.refresh(job)
     await enqueue({"type": JobType.delete_vm.value, "job_id": str(job.id), "vm_id": str(vm.id)})
@@ -288,4 +307,32 @@ def serialize_vm(vm: VM, last_error: str | None = None) -> VMOut:
         actions=actions,
         last_error=last_error if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
     )
+
+
+async def _audit_vm(db: AsyncSession, request: Request, action: str, vm: VM, **detail) -> None:
+    await record_audit(
+        db,
+        action=action,
+        request=request,
+        actor=get_settings().ADMIN_USERNAME,
+        target_type="vm",
+        target_id=vm.id,
+        target_label=vm.hostname,
+        detail=detail or {},
+    )
+
+
+def serialize_audit(event: AuditEvent) -> dict:
+    return {
+        "id": str(event.id),
+        "action": event.action,
+        "actor": event.actor,
+        "source_ip": event.source_ip,
+        "target_type": event.target_type,
+        "target_id": event.target_id,
+        "target_label": event.target_label,
+        "detail": event.detail or {},
+        "request_id": event.request_id,
+        "created_at": event.created_at.isoformat() if event.created_at else None,
+    }
 

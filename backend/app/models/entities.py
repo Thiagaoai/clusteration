@@ -168,3 +168,20 @@ class Template(Base):
     defaults: Mapped[dict[str, Any]] = mapped_column(JSONType(), default=dict, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+
+class AuditEvent(Base):
+    """Append-only record of admin actions: who did what, to which VM, from where, when."""
+
+    __tablename__ = "audit_events"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    action: Mapped[str] = mapped_column(String(64), nullable=False)
+    actor: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    source_ip: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_label: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    detail: Mapped[dict[str, Any]] = mapped_column(JSONType(), default=dict, nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
