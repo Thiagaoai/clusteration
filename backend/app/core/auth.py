@@ -14,7 +14,9 @@ def require_admin(request: Request) -> None:
 
 
 def verify_login(username: str, password: str, settings: Settings) -> bool:
-    if username != settings.ADMIN_USERNAME:
+    # Username is case-insensitive (and whitespace-trimmed) for usability; the
+    # password stays exact and is compared in constant time.
+    if username.strip().casefold() != settings.ADMIN_USERNAME.strip().casefold():
         return False
     if settings.ADMIN_PASSWORD:
         return hmac.compare_digest(password, settings.ADMIN_PASSWORD)
