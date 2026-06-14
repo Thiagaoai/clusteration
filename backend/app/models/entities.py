@@ -185,3 +185,32 @@ class AuditEvent(Base):
     request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
+
+class AdminCredential(Base):
+    """Runtime-mutable admin password (so it can be reset/changed without a redeploy).
+
+    Seeded from the env ADMIN_PASSWORD/HASH on first boot; afterwards this is authoritative.
+    """
+
+    __tablename__ = "admin_credentials"
+
+    username: Mapped[str] = mapped_column(String(128), primary_key=True)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class PasswordReset(Base):
+    """Short-lived, single-use, hashed password-reset codes emailed to the admin."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[uuid.UUID] = mapped_column(GUID(), primary_key=True, default=uuid.uuid4)
+    username: Mapped[str] = mapped_column(String(128), nullable=False)
+    code_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+

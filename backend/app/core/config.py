@@ -26,6 +26,16 @@ class Settings(BaseSettings):
     BACKUP_INTERVAL_HOURS: int = 6
     BACKUP_KEEP: int = 28
 
+    # Password reset via email (SMTP). When SMTP_HOST is empty the feature is disabled.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_STARTTLS: bool = True
+    RESET_EMAIL_TO: str = ""
+    RESET_CODE_TTL_MINUTES: int = 15
+
     PROXMOX_HOST: str = "https://10.1.10.209:8006"
     PROXMOX_TOKEN_ID: str = ""
     PROXMOX_TOKEN_SECRET: str = ""

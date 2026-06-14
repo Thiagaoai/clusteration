@@ -25,6 +25,7 @@ from app.core.errors import (
 )
 from app.db.session import AsyncSessionLocal, get_db
 from app.services.backup import backup_loop
+from app.services.credentials import seed_admin_credential
 from app.services.lifecycle import mark_orphaned_running_as_failed, seed_templates
 from app.services.terminal import terminal_websocket
 from app.workers.inprocess import requeue_queued_jobs, worker_loop
@@ -50,6 +51,7 @@ async def lifespan(app: FastAPI):
     _assert_durable_db(get_settings())
     async with AsyncSessionLocal() as db:
         await seed_templates(db, get_settings())
+        await seed_admin_credential(db, get_settings())
         await mark_orphaned_running_as_failed(db)
     worker_task = asyncio.create_task(worker_loop())
     backup_task = asyncio.create_task(backup_loop(get_settings()))

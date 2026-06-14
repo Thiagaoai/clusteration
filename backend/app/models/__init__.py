@@ -1,8 +1,10 @@
 from app.models.entities import (
+    AdminCredential,
     AuditEvent,
     Job,
     JobStatus,
     JobType,
+    PasswordReset,
     SSHStatus,
     Template,
     TerminalSession,
@@ -13,10 +15,12 @@ from app.models.entities import (
 )
 
 __all__ = [
+    "AdminCredential",
     "AuditEvent",
     "Job",
     "JobStatus",
     "JobType",
+    "PasswordReset",
     "SSHStatus",
     "Template",
     "TerminalSession",

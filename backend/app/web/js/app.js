@@ -77,6 +77,7 @@ const shell = (content) => `
         </div>
         <div class="topbar-actions">
           <button class="ghost-button icon-btn" type="button" data-theme-toggle aria-label="Alternar tema claro/escuro">${themeIcon()}</button>
+          <a class="ghost-button" href="/trocar-senha" data-route>Trocar senha</a>
           <button class="ghost-button" type="button" data-logout>Sair</button>
         </div>
       </header>
@@ -100,7 +101,7 @@ function bindShellEvents() {
   bindThemeToggle();
 }
 
-function renderLogin(error = "") {
+function renderLogin(error = "", notice = "") {
   app.innerHTML = `
     <main class="login-page">
       <section class="login-animation-layer" aria-hidden="true">
@@ -123,13 +124,16 @@ function renderLogin(error = "") {
         <h1>Acesso seguro ao cluster</h1>
         <p>Login obrigatório para proteger inventário, terminais e ações das suas VMs.</p>
         ${error ? `<p class="error">${error}</p>` : ""}
+        ${notice ? `<p class="success">${notice}</p>` : ""}
         <label><span>Usuário</span><input name="username" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
         <label><span>Senha</span><div class="password-field"><input name="password" type="password" autocomplete="current-password" required>${pwToggle()}</div></label>
         <button class="primary-button" type="submit">Entrar</button>
+        <button class="ghost-button" type="button" data-forgot style="margin-top:6px">Esqueci minha senha</button>
       </form>
     </main>
   `;
   startHeroVideo();
+  document.querySelector("[data-forgot]")?.addEventListener("click", () => { history.pushState(null, "", "/recuperar"); renderReset(); });
   document.getElementById("login-form").addEventListener("submit", async (event) => {
     event.preventDefault();
     const body = JSON.stringify(Object.fromEntries(new FormData(event.currentTarget).entries()));
@@ -145,6 +149,81 @@ function renderLogin(error = "") {
     }
     history.pushState(null, "", "/");
     router();
+  });
+}
+
+function renderReset(stage = "request", message = "") {
+  const isErr = message.startsWith("!");
+  const text = message.replace(/^!/, "");
+  app.innerHTML = `
+    <main class="login-page">
+      <section class="login-animation-layer" aria-hidden="true">
+        <div class="dashboard-scrim"></div>
+        <div class="grid-lines login-grid-lines"><span></span><span></span><span></span></div>
+      </section>
+      <form class="card form-card login-card" id="reset-form">
+        <img class="login-logo" src="/img/thiagao-cluster-logo.png" alt="Thiagao Ai Cluster">
+        <span class="eyebrow">Redefinir senha</span>
+        <h1>Esqueci minha senha</h1>
+        ${message ? `<p class="${isErr ? "error" : "success"}">${esc(text)}</p>` : ""}
+        ${stage === "request" ? `
+          <p>Vamos enviar um código de 6 dígitos para o seu email cadastrado.</p>
+          <button class="primary-button" type="submit">Enviar código por email</button>
+        ` : `
+          <p>Digite o código que chegou no seu email e escolha a nova senha.</p>
+          <label><span>Código (6 dígitos)</span><input name="code" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" required></label>
+          <label><span>Nova senha (mín. 8)</span><div class="password-field"><input name="new_password" type="password" minlength="8" autocomplete="new-password" required>${pwToggle()}</div></label>
+          <button class="primary-button" type="submit">Redefinir senha</button>
+        `}
+        <button class="ghost-button" type="button" data-back-login style="margin-top:6px">Voltar ao login</button>
+      </form>
+    </main>
+  `;
+  document.querySelector("[data-back-login]").addEventListener("click", () => { history.pushState(null, "", "/login"); renderLogin(); });
+  document.getElementById("reset-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (stage === "request") {
+      const r = await fetch("/api/auth/forgot", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" } });
+      const d = await r.json().catch(() => null);
+      if (r.ok) renderReset("confirm", `Código enviado para ${d && d.to ? d.to : "seu email"}. Veja sua caixa de entrada (e o spam).`);
+      else renderReset("request", "!" + ((d && d.error && d.error.message) || "Não foi possível enviar o email agora."));
+      return;
+    }
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const r = await fetch("/api/auth/reset", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const d = await r.json().catch(() => null);
+    if (r.ok) { history.pushState(null, "", "/login"); renderLogin("", "Senha redefinida! Entre com a nova senha."); }
+    else renderReset("confirm", "!" + ((d && d.error && d.error.message) || "Código inválido ou expirado."));
+  });
+}
+
+function renderChangePassword(message = "") {
+  const isErr = message.startsWith("!");
+  const text = message.replace(/^!/, "");
+  app.innerHTML = shell(`
+    <section class="section-header">
+      <div><span class="eyebrow">Conta</span><h1>Trocar senha</h1><p>Defina uma nova senha de acesso ao painel.</p></div>
+    </section>
+    <div class="card form-card">
+      ${message ? `<p class="${isErr ? "error" : "success"}">${esc(text)}</p>` : ""}
+      <form id="change-form" class="form">
+        <label><span>Senha atual</span><div class="password-field"><input name="current_password" type="password" autocomplete="current-password" required>${pwToggle()}</div></label>
+        <label><span>Nova senha (mín. 8)</span><div class="password-field"><input name="new_password" type="password" minlength="8" autocomplete="new-password" required>${pwToggle()}</div></label>
+        <div class="form-actions">
+          <a class="ghost-button" href="/" data-route>Cancelar</a>
+          <button class="primary-button" type="submit">Salvar nova senha</button>
+        </div>
+      </form>
+    </div>
+  `);
+  bindShellEvents();
+  document.getElementById("change-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    const r = await fetch("/api/auth/change-password", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
+    const d = await r.json().catch(() => null);
+    if (r.ok) { history.pushState(null, "", "/"); renderDashboard(); }
+    else renderChangePassword("!" + ((d && d.error && d.error.message) || "Não foi possível trocar a senha."));
   });
 }
 
@@ -766,9 +845,11 @@ async function router() {
   }
   if (!authed) {
     if (window.location.pathname === "/login") return renderLogin();
+    if (window.location.pathname === "/recuperar") return renderReset();
     return renderLanding();
   }
   if (window.location.pathname === "/vms/new") return renderNewVm();
+  if (window.location.pathname === "/trocar-senha") return renderChangePassword();
   if (window.location.pathname === "/atividade") return renderAudit();
   if (window.location.pathname === "/terminal") return renderTerminal();
   return renderDashboard();
