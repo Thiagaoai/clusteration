@@ -153,6 +153,17 @@ async def delete_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM) 
     await db.commit()
     if vm.proxmox_vmid is not None:
         async with ProxmoxClient(settings) as proxmox:
+            # Proxmox refuses to destroy a running VM ("VM is running - destroy failed"),
+            # so stop it first if it's up. Best-effort: if the status check fails (e.g. the
+            # VM is already gone), fall through and let the destroy report the real state.
+            try:
+                current = await proxmox.get(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/current")
+                if isinstance(current, dict) and current.get("status") == "running":
+                    stop_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/stop")
+                    await set_job_meta(db, job, {"upid": stop_upid, "node": vm.node, "operation": "stop-before-delete", "polled_at": iso_now()})
+                    await proxmox.wait_for_task(vm.node, stop_upid)
+            except ProxmoxError:
+                pass
             upid = await proxmox.delete(
                 f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}",
                 params={"purge": 1, "destroy-unreferenced-disks": 1},
