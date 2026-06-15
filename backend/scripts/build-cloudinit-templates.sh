@@ -22,7 +22,9 @@ CLAUDE_VMID="${TEMPLATE_CLAUDE_VMID:-9012}"
 DEBIAN_URL="${DEBIAN_URL:-https://cloud.debian.org/images/cloud/trixie/latest/debian-13-genericcloud-amd64.qcow2}"
 UBUNTU_URL="${UBUNTU_URL:-https://cloud-images.ubuntu.com/releases/resolute/release/ubuntu-26.04-server-cloudimg-amd64.img}"
 FEDORA_VERSION="${FEDORA_VERSION:-44}"
-FEDORA_URL="${FEDORA_URL:-https://download.fedoraproject.org/pub/fedora/linux/releases/${FEDORA_VERSION}/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-${FEDORA_VERSION}-1.1.x86_64.qcow2}"
+FEDORA_IMAGE_RELEASE="${FEDORA_IMAGE_RELEASE:-1.7}"
+FEDORA_URL="${FEDORA_URL:-https://download.fedoraproject.org/pub/fedora/linux/releases/${FEDORA_VERSION}/Cloud/x86_64/images/Fedora-Cloud-Base-Generic-${FEDORA_VERSION}-${FEDORA_IMAGE_RELEASE}.x86_64.qcow2}"
+AI_IMAGE_SIZE="${AI_IMAGE_SIZE:-16G}"
 
 HERMES_INSTALL_CMD="${HERMES_INSTALL_CMD:-curl -fsSL https://ollama.com/install.sh | sh}"
 HERMES_MODEL="${HERMES_MODEL:-hermes3}"
@@ -101,11 +103,24 @@ customize_common() {
     return
   fi
   virt-customize -a "$image" \
-    --run-command 'if command -v apt-get >/dev/null 2>&1; then apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-guest-agent openssh-server cloud-init curl git ca-certificates python3 python3-pip python3-venv nodejs npm; fi' \
-    --run-command 'if command -v dnf >/dev/null 2>&1; then dnf install -y qemu-guest-agent openssh-server cloud-init curl git ca-certificates python3 python3-pip nodejs npm; fi' \
+    --run-command 'if command -v apt-get >/dev/null 2>&1; then apt-get clean && apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-guest-agent openssh-server cloud-init curl git ca-certificates python3 python3-pip python3-venv nodejs npm && apt-get clean; fi' \
+    --run-command 'if command -v dnf >/dev/null 2>&1; then dnf install -y qemu-guest-agent openssh-server cloud-init curl git ca-certificates python3 python3-pip nodejs npm && dnf clean all; fi' \
     --run-command 'systemctl enable qemu-guest-agent >/dev/null 2>&1 || true' \
     --run-command 'systemctl enable ssh >/dev/null 2>&1 || systemctl enable sshd >/dev/null 2>&1 || true' \
     --run-command "echo clusteration-template-${family} >/etc/clusteration-template"
+}
+
+expand_cloud_image() {
+  local source="$1"
+  local image="$2"
+  if ! command -v virt-resize >/dev/null 2>&1 || ! command -v qemu-img >/dev/null 2>&1; then
+    echo "virt-resize/qemu-img not found; copying image without offline resize"
+    cp -f "$source" "$image"
+    return
+  fi
+  rm -f "$image"
+  qemu-img create -f qcow2 "$image" "$AI_IMAGE_SIZE"
+  virt-resize --expand /dev/sda1 "$source" "$image"
 }
 
 customize_ai() {
@@ -119,13 +134,20 @@ customize_ai() {
     hermes)
       virt-customize -a "$image" \
         --run-command "$HERMES_INSTALL_CMD" \
-        --run-command "mkdir -p /opt/clusteration && printf '%s\n' 'HERMES_MODEL=${HERMES_MODEL}' >/opt/clusteration/ai.env"
+        --run-command "mkdir -p /opt/clusteration && printf '%s\n' 'HERMES_MODEL=${HERMES_MODEL}' >/opt/clusteration/ai.env" \
+        --run-command 'apt-get clean >/dev/null 2>&1 || true'
       ;;
     openclaw)
-      virt-customize -a "$image" --run-command "$OPENCLAW_INSTALL_CMD"
+      virt-customize -a "$image" \
+        --run-command "$OPENCLAW_INSTALL_CMD" \
+        --run-command 'npm cache clean --force >/dev/null 2>&1 || true' \
+        --run-command 'apt-get clean >/dev/null 2>&1 || true'
       ;;
     claude)
-      virt-customize -a "$image" --run-command "$CLAUDE_INSTALL_CMD"
+      virt-customize -a "$image" \
+        --run-command "$CLAUDE_INSTALL_CMD" \
+        --run-command 'npm cache clean --force >/dev/null 2>&1 || true' \
+        --run-command 'apt-get clean >/dev/null 2>&1 || true'
       ;;
   esac
 }
@@ -193,9 +215,9 @@ build_ai() {
   }
   skip_existing_build "$vmid" "$name" && return
   local source="${WORKDIR}/ubuntu.img"
-  local image="${WORKDIR}/${bundle}-custom.img"
+  local image="${WORKDIR}/${bundle}-custom.qcow2"
   download "$UBUNTU_URL" "$source"
-  cp -f "$source" "$image"
+  expand_cloud_image "$source" "$image"
   customize_ai "$image" "$bundle"
   create_template "$vmid" "$name" "$image"
 }

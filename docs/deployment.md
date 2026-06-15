@@ -177,10 +177,15 @@ Para substituir VMIDs já existentes:
 sudo REPLACE_EXISTING=1 bash scripts/build-cloudinit-templates.sh
 ```
 
-As imagens AI usam Ubuntu como base e aceitam overrides de instalação:
+As imagens AI usam Ubuntu como base. O script expande a imagem para `16G`
+antes da instalação offline dos pacotes; ajuste com `AI_IMAGE_SIZE` se precisar.
+O release da imagem Fedora pode ser sobrescrito com `FEDORA_IMAGE_RELEASE`.
+
+As imagens AI aceitam overrides de instalação:
 
 ```bash
 sudo REPLACE_EXISTING=1 \
+  AI_IMAGE_SIZE=16G \
   HERMES_MODEL=hermes3 \
   OPENCLAW_INSTALL_CMD='npm install -g openclaw@latest' \
   CLAUDE_INSTALL_CMD='npm install -g @anthropic-ai/claude-code@latest' \
