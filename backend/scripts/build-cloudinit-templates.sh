@@ -2,13 +2,15 @@
 set -euo pipefail
 
 # Build Proxmox cloud-init templates used by the panel.
-# Run on a Proxmox node as root. Existing VMIDs are kept unless
+# Run on a Proxmox node as root. Existing VMIDs are skipped unless
 # REPLACE_EXISTING=1 is set.
 
 STORAGE="${STORAGE:-local-lvm}"
 BRIDGE="${BRIDGE:-vmbr0}"
 WORKDIR="${WORKDIR:-/var/lib/vz/template/clusteration-cloud}"
 REPLACE_EXISTING="${REPLACE_EXISTING:-0}"
+SKIP_EXISTING="${SKIP_EXISTING:-1}"
+TEMPLATE_FILTER="${TEMPLATE_FILTER:-}"
 
 DEBIAN_VMID="${TEMPLATE_DEBIAN_VMID:-9000}"
 UBUNTU_VMID="${TEMPLATE_UBUNTU_VMID:-9001}"
@@ -56,18 +58,38 @@ vmid_exists() {
   qm status "$1" >/dev/null 2>&1
 }
 
+template_selected() {
+  local name="$1"
+  [[ -z "$TEMPLATE_FILTER" || ",${TEMPLATE_FILTER}," == *",${name},"* ]]
+}
+
+skip_existing_build() {
+  local vmid="$1"
+  local name="$2"
+  if vmid_exists "$vmid" && [[ "$REPLACE_EXISTING" != "1" && "$SKIP_EXISTING" == "1" ]]; then
+    echo "VMID $vmid ($name) already exists; skipping"
+    return 0
+  fi
+  return 1
+}
+
 prepare_vmid() {
   local vmid="$1"
   if ! vmid_exists "$vmid"; then
     return
   fi
-  if [[ "$REPLACE_EXISTING" != "1" ]]; then
-    echo "VMID $vmid already exists; set REPLACE_EXISTING=1 to rebuild it" >&2
-    exit 1
+  if [[ "$REPLACE_EXISTING" == "1" ]]; then
+    echo "destroying existing VMID $vmid"
+    qm stop "$vmid" >/dev/null 2>&1 || true
+    qm destroy "$vmid" --purge 1 --destroy-unreferenced-disks 1
+    return
   fi
-  echo "destroying existing VMID $vmid"
-  qm stop "$vmid" >/dev/null 2>&1 || true
-  qm destroy "$vmid" --purge 1 --destroy-unreferenced-disks 1
+  if [[ "$SKIP_EXISTING" == "1" ]]; then
+    echo "VMID $vmid already exists; skipping"
+    return 1
+  fi
+  echo "VMID $vmid already exists; set REPLACE_EXISTING=1 to rebuild it" >&2
+  exit 1
 }
 
 customize_common() {
@@ -113,7 +135,9 @@ create_template() {
   local name="$2"
   local image="$3"
   local os_type="${4:-l26}"
-  prepare_vmid "$vmid"
+  if ! prepare_vmid "$vmid"; then
+    return
+  fi
   echo "creating template $name ($vmid)"
   qm create "$vmid" \
     --name "$name" \
@@ -145,6 +169,11 @@ build_base() {
   local vmid="$2"
   local name="$3"
   local url="$4"
+  template_selected "$os" || {
+    echo "skipping $os; not selected by TEMPLATE_FILTER"
+    return
+  }
+  skip_existing_build "$vmid" "$name" && return
   local ext="${url##*.}"
   local source="${WORKDIR}/${os}.${ext}"
   local image="${WORKDIR}/${os}-custom.${ext}"
@@ -158,6 +187,11 @@ build_ai() {
   local bundle="$1"
   local vmid="$2"
   local name="$3"
+  template_selected "$bundle" || {
+    echo "skipping $bundle; not selected by TEMPLATE_FILTER"
+    return
+  }
+  skip_existing_build "$vmid" "$name" && return
   local source="${WORKDIR}/ubuntu.img"
   local image="${WORKDIR}/${bundle}-custom.img"
   download "$UBUNTU_URL" "$source"

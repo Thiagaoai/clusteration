@@ -163,6 +163,14 @@ cd backend
 sudo bash scripts/build-cloudinit-templates.sh
 ```
 
+Por padrão, o script pula VMIDs que já existem. Para construir só uma parte dos
+templates, use `TEMPLATE_FILTER` com os nomes separados por vírgula:
+
+```bash
+sudo TEMPLATE_FILTER=fedora,hermes,openclaw,claude \
+  bash scripts/build-cloudinit-templates.sh
+```
+
 Para substituir VMIDs já existentes:
 
 ```bash
