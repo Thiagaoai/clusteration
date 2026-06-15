@@ -155,6 +155,37 @@ async def list_audit(db: AsyncSession = Depends(get_db), limit: int = 100, offse
     return {"events": [serialize_audit(event) for event in rows]}
 
 
+@router.get("/jobs")
+async def list_jobs(db: AsyncSession = Depends(get_db), limit: int = 50, offset: int = 0):
+    limit = max(1, min(limit, 200))
+    offset = max(0, offset)
+    rows = (
+        await db.scalars(
+            select(Job).order_by(Job.created_at.desc()).limit(limit).offset(offset)
+        )
+    ).all()
+    vm_ids = [job.vm_id for job in rows if job.vm_id is not None]
+    vms = {}
+    if vm_ids:
+        vms = {vm.id: vm for vm in (await db.scalars(select(VM).where(VM.id.in_(vm_ids)))).all()}
+    return {
+        "jobs": [
+            {
+                "id": str(job.id),
+                "type": job.type,
+                "status": job.status,
+                "error": job.error,
+                "meta": job.meta or {},
+                "vm_id": str(job.vm_id) if job.vm_id else None,
+                "vm_hostname": vms[job.vm_id].hostname if job.vm_id in vms else None,
+                "created_at": job.created_at.isoformat() if job.created_at else None,
+                "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+            }
+            for job in rows
+        ]
+    }
+
+
 @router.get("/vms/{vm_id}")
 async def get_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> VMOut:
     return serialize_vm(await get_live_vm(db, vm_id))

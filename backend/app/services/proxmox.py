@@ -58,7 +58,8 @@ class ProxmoxClient:
                     break
                 await asyncio.sleep(min(0.5 * (2**attempt), 8.0))
         if isinstance(last_exc, httpx.HTTPStatusError) and last_exc.response.status_code in (401, 403):
-            raise ProxmoxAuthError("Proxmox recusou o token/API permissions")
+            detail = sanitize_proxmox_error(last_exc)
+            raise ProxmoxAuthError(f"Proxmox recusou {method} {path}: {detail}")
         raise ProxmoxError(sanitize_proxmox_error(last_exc))
 
     async def get(self, path: str, **kwargs) -> Any:
@@ -192,4 +193,3 @@ def sanitize_proxmox_error(exc: Exception | None) -> str:
             return f"Proxmox respondeu HTTP {exc.response.status_code}: {detail[:300]}"
         return f"Proxmox respondeu HTTP {exc.response.status_code}"
     return exc.__class__.__name__
-
