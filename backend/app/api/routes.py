@@ -2,13 +2,13 @@ import uuid
 from datetime import UTC, datetime, timedelta
 
 from fastapi import APIRouter, Depends, Request, Response
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_admin
 from app.core.config import VM_SIZES, get_settings
 from app.core.errors import AppHTTPException
-from app.core.readiness import missing_runtime_settings
+from app.core.readiness import database_durability, missing_runtime_settings
 from app.db.session import get_db
 from app.models import (
     AuditEvent,
@@ -23,7 +23,7 @@ from app.models import (
     VMExposure,
     VMStatus,
 )
-from app.schemas.vms import DeleteVM, ExposureCreate, JobOut, VMCreate, VMOut
+from app.schemas.vms import DeleteVM, ExposureCreate, JobOut, ReinstallVM, VMCreate, VMOut
 from app.services.audit import record_audit
 from app.services.lifecycle import enqueue_ssh_check
 from app.workers.inprocess import enqueue
@@ -130,6 +130,19 @@ async def readiness():
     return {"ready": not missing, "missing": missing}
 
 
+@router.get("/system/status")
+async def system_status(db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
+    template_count = await db.scalar(select(func.count()).select_from(Template))
+    return {
+        "runtime_ready": not missing_runtime_settings(settings),
+        "missing_runtime": missing_runtime_settings(settings),
+        "database": database_durability(settings),
+        "templates_configured": template_count or 0,
+        "worker_mode": settings.WORKER_MODE,
+    }
+
+
 @router.get("/audit")
 async def list_audit(db: AsyncSession = Depends(get_db), limit: int = 100, offset: int = 0):
     limit = max(1, min(limit, 500))
@@ -172,6 +185,66 @@ async def reboot_vm(vm_id: uuid.UUID, request: Request, db: AsyncSession = Depen
         raise AppHTTPException("INVALID_STATE", "VM não está running", 409)
     await _audit_vm(db, request, "vm.reboot", vm)
     return await enqueue_power_job(db, vm, JobType.reboot_vm)
+
+
+@router.post("/vms/{vm_id}/reinstall", status_code=202)
+async def reinstall_vm(
+    vm_id: uuid.UUID,
+    payload: ReinstallVM,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
+):
+    settings = get_settings()
+    missing = missing_runtime_settings(settings)
+    if missing:
+        raise AppHTTPException(
+            "PROXMOX_NOT_CONFIGURED",
+            "configure o .env antes de reinstalar VMs: " + ", ".join(missing),
+            400,
+        )
+    vm = await get_live_vm(db, vm_id)
+    if payload.confirm_hostname != vm.hostname:
+        raise AppHTTPException("HOSTNAME_MISMATCH", "hostname de confirmação não confere", 400)
+    if vm.status not in (VMStatus.running.value, VMStatus.stopped.value, VMStatus.error.value):
+        raise AppHTTPException("INVALID_STATE", "VM não pode ser reinstalada neste estado", 409)
+
+    template_os = payload.template or vm.template
+    template = await db.scalar(select(Template).where(Template.os == template_os))
+    if template is None:
+        raise AppHTTPException("TEMPLATE_NOT_FOUND", "template não encontrado", 404)
+    if template.defaults and template.defaults.get("enabled") is False:
+        raise AppHTTPException("TEMPLATE_DISABLED", "template desabilitado", 400)
+
+    job = Job(
+        type=JobType.reinstall_vm.value,
+        status=JobStatus.queued.value,
+        vm_id=vm.id,
+        meta={"template": template_os},
+    )
+    db.add(job)
+    await _audit_vm(
+        db,
+        request,
+        "vm.reinstall",
+        vm,
+        previous_template=vm.template,
+        next_template=template_os,
+        proxmox_vmid=vm.proxmox_vmid,
+        ip_address=vm.ip_address,
+        node=vm.node,
+    )
+    await db.commit()
+    await db.refresh(job)
+    await enqueue(
+        {
+            "type": JobType.reinstall_vm.value,
+            "job_id": str(job.id),
+            "vm_id": str(vm.id),
+            "root_password": payload.root_password,
+            "template": template_os,
+        }
+    )
+    return {"job_id": str(job.id), "status": "queued"}
 
 
 @router.delete("/vms/{vm_id}", status_code=202)
@@ -291,6 +364,7 @@ def serialize_vm(vm: VM, last_error: str | None = None) -> VMOut:
         "can_reboot": running,
         "can_terminal": running and ssh_ready,
         "can_delete": vm.status in (VMStatus.running.value, VMStatus.stopped.value, VMStatus.error.value),
+        "can_reinstall": vm.status in (VMStatus.running.value, VMStatus.stopped.value, VMStatus.error.value),
         "can_recheck": running and not ssh_ready,
     }
     return VMOut(
@@ -335,4 +409,3 @@ def serialize_audit(event: AuditEvent) -> dict:
         "request_id": event.request_id,
         "created_at": event.created_at.isoformat() if event.created_at else None,
     }
-

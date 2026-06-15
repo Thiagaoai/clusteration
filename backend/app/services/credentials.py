@@ -1,7 +1,7 @@
 """Runtime-mutable admin credential — DB-backed so the password can be reset/changed.
 
-Seeded from the env ADMIN_PASSWORD/HASH on first boot; afterwards the DB row is
-authoritative. The env value stays as a break-glass fallback if the row is missing.
+Seeded from the env ADMIN_PASSWORD_HASH on first boot; afterwards the DB row is
+authoritative. The env hash stays as a break-glass fallback if the row is missing.
 """
 
 import logging
@@ -27,9 +27,7 @@ async def seed_admin_credential(db: AsyncSession, settings: Settings) -> None:
     existing = await db.scalar(select(AdminCredential).where(AdminCredential.username == uname))
     if existing:
         return
-    if settings.ADMIN_PASSWORD:
-        password_hash = pwd.hash(settings.ADMIN_PASSWORD)
-    elif settings.ADMIN_PASSWORD_HASH:
+    if settings.ADMIN_PASSWORD_HASH:
         password_hash = settings.ADMIN_PASSWORD_HASH
     else:
         return

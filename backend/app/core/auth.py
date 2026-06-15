@@ -1,5 +1,3 @@
-import hmac
-
 from fastapi import HTTPException, Request, status
 from passlib.context import CryptContext
 
@@ -18,9 +16,6 @@ def verify_login(username: str, password: str, settings: Settings) -> bool:
     # password stays exact and is compared in constant time.
     if username.strip().casefold() != settings.ADMIN_USERNAME.strip().casefold():
         return False
-    if settings.ADMIN_PASSWORD:
-        return hmac.compare_digest(password, settings.ADMIN_PASSWORD)
     if settings.ADMIN_PASSWORD_HASH:
         return pwd.verify(password, settings.ADMIN_PASSWORD_HASH)
     return False
-

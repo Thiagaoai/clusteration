@@ -228,8 +228,15 @@ function renderChangePassword(message = "") {
 }
 
 async function renderDashboard() {
-  const response = await api("/api/vms");
+  const [response, systemResponse] = await Promise.all([
+    api("/api/vms"),
+    api("/api/system/status").catch(() => null),
+  ]);
   const { vms } = await response.json();
+  const systemStatus = systemResponse && systemResponse.ok ? await systemResponse.json() : null;
+  const dbWarning = systemStatus && systemStatus.database && !systemStatus.database.durable
+    ? `<p class="error">Banco em storage não durável: ${esc(systemStatus.database.message)}. Configure DATABASE_URL em /data ou Postgres antes do próximo redeploy.</p>`
+    : "";
   const hasTransient = vms.some((vm) =>
     ["creating", "provisioning", "starting", "stopping", "rebooting", "deleting"].includes(vm.status),
   );
@@ -262,6 +269,7 @@ async function renderDashboard() {
       </div>
     </section>
     <section class="content dashboard-content" id="inventory">
+      ${dbWarning}
       <section class="stats-grid">
         <article class="card stat-card green"><span>VMs ativas</span><strong>${vms.filter((vm) => vm.status === "running").length}</strong><small>Compute online agora</small></article>
         <article class="card stat-card blue"><span>Inventário total</span><strong>${vms.length}</strong><small>VMs gerenciadas</small></article>
@@ -334,6 +342,7 @@ function vmTable(vms) {
         <button class="ghost-button" data-action="reboot" data-id="${vm.id}" ${vm.actions.can_reboot ? "" : "disabled"}>Reiniciar</button>
         ${vm.actions.can_recheck ? `<button class="ghost-button" data-recheck="${vm.id}">Re-checar SSH</button>` : ""}
         <button class="primary-button" data-terminal="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
+        <button class="danger-button" data-reinstall="${vm.id}" data-hostname="${esc(vm.hostname)}" data-template="${esc(vm.template)}" ${vm.actions.can_reinstall ? "" : "disabled"}>Reinstalar</button>
         <button class="danger-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_delete ? "" : "disabled"}>Excluir</button>
       </td>
     </tr>
@@ -411,6 +420,54 @@ function confirmModal({ title, body, confirmText = "Confirmar", cancelText = "Ca
   });
 }
 
+function reinstallModal({ host, currentTemplate, templates }) {
+  return new Promise((resolve) => {
+    const enabled = templates.filter((template) => template.enabled);
+    const overlay = document.createElement("div");
+    overlay.className = "modal-overlay";
+    overlay.innerHTML = `
+      <div class="modal" role="dialog" aria-modal="true">
+        <h3>Reinstalar VPS</h3>
+        <div class="modal-body">
+          Isso apaga o disco atual de <strong>${esc(host)}</strong> e cria a VPS de novo a partir do template escolhido.
+        </div>
+        <label><span class="modal-label">Template</span>
+          <select class="modal-input" data-template>
+            ${enabled.map((template) => `<option value="${esc(template.os)}" ${template.os === currentTemplate ? "selected" : ""}>${esc(template.name)}</option>`).join("")}
+          </select>
+        </label>
+        <label><span class="modal-label">Nova senha root</span>
+          <input class="modal-input" data-root-password type="password" minlength="8" autocomplete="new-password">
+        </label>
+        <label><span class="modal-label">Digite o hostname para confirmar</span>
+          <input class="modal-input" data-confirm-host type="text" placeholder="${esc(host)}" autocapitalize="none" autocorrect="off" spellcheck="false">
+        </label>
+        <div class="modal-actions">
+          <button class="ghost-button" type="button" data-cancel>Cancelar</button>
+          <button class="danger-button" type="button" data-confirm disabled>Reinstalar VPS</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const templateEl = overlay.querySelector("[data-template]");
+    const passwordEl = overlay.querySelector("[data-root-password]");
+    const hostEl = overlay.querySelector("[data-confirm-host]");
+    const confirmBtn = overlay.querySelector("[data-confirm]");
+    const isValid = () => hostEl.value === host && passwordEl.value.length >= 8 && templateEl.value;
+    const update = () => { confirmBtn.disabled = !isValid(); };
+    const close = (value) => { overlay.remove(); document.removeEventListener("keydown", onKey); resolve(value); };
+    const onKey = (event) => { if (event.key === "Escape") close(null); };
+    document.addEventListener("keydown", onKey);
+    [templateEl, passwordEl, hostEl].forEach((el) => el.addEventListener("input", update));
+    overlay.addEventListener("click", (event) => { if (event.target === overlay) close(null); });
+    overlay.querySelector("[data-cancel]").addEventListener("click", () => close(null));
+    confirmBtn.addEventListener("click", () => {
+      if (!isValid()) return;
+      close({ template: templateEl.value, root_password: passwordEl.value, confirm_hostname: host });
+    });
+    setTimeout(() => templateEl.focus(), 30);
+  });
+}
+
 function bindDashboardActions() {
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => withLoading(button, async () => {
@@ -443,6 +500,28 @@ function bindDashboardActions() {
         const res = await api(`/api/vms/${button.dataset.delete}`, { method: "DELETE", body: JSON.stringify({ confirm_hostname: host }) });
         if (!res.ok) { toast(await errMsg(res) || "Erro ao excluir.", "error"); return; }
         toast("VM em exclusão…");
+        renderDashboard();
+      });
+    });
+  });
+  document.querySelectorAll("[data-reinstall]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const host = button.dataset.hostname;
+      let templates = [];
+      try {
+        const res = await api("/api/templates");
+        if (!res.ok) { toast(await errMsg(res) || "Não foi possível carregar templates.", "error"); return; }
+        templates = (await res.json()).templates || [];
+      } catch (_) {
+        toast("Não foi possível carregar templates.", "error");
+        return;
+      }
+      const payload = await reinstallModal({ host, currentTemplate: button.dataset.template, templates });
+      if (!payload) return;
+      await withLoading(button, async () => {
+        const res = await api(`/api/vms/${button.dataset.reinstall}/reinstall`, { method: "POST", body: JSON.stringify(payload) });
+        if (!res.ok) { toast(await errMsg(res) || "Erro ao reinstalar VPS.", "error"); return; }
+        toast("VPS em reinstalação…");
         renderDashboard();
       });
     });

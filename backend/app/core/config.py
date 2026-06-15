@@ -17,9 +17,8 @@ class Settings(BaseSettings):
 
     ADMIN_USERNAME: str = "admin"
     ADMIN_PASSWORD_HASH: str = ""
-    ADMIN_PASSWORD: str = ""
 
-    DATABASE_URL: str = "sqlite+aiosqlite:///./vmpanel.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:////data/vmpanel.db"
 
     # Automated SQLite backups (no-op when DATABASE_URL is not sqlite)
     BACKUP_DIR: str = "/data/backups"
@@ -42,6 +41,12 @@ class Settings(BaseSettings):
     PROXMOX_DEFAULT_NODE: str = "pve"
     PROXMOX_DEFAULT_STORAGE: str = "local-lvm"
     PROXMOX_DEFAULT_BRIDGE: str = "vmbr0"
+    TEMPLATE_DEBIAN_VMID: int = 9000
+    TEMPLATE_UBUNTU_VMID: int = 9001
+    TEMPLATE_FEDORA_VMID: int = 9002
+    TEMPLATE_HERMES_VMID: int = 9010
+    TEMPLATE_OPENCLAW_VMID: int = 9011
+    TEMPLATE_CLAUDE_VMID: int = 9012
 
     CLOUDINIT_NAMESERVER: str = "1.1.1.1"
     CLOUDINIT_IPCONFIG: str = "ip=dhcp"
@@ -70,4 +75,3 @@ VM_SIZES = {
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

@@ -16,6 +16,12 @@ class DeleteVM(BaseModel):
     confirm_hostname: str
 
 
+class ReinstallVM(BaseModel):
+    confirm_hostname: str
+    template: str | None = None
+    root_password: str = Field(min_length=8, max_length=256)
+
+
 class ExposureCreate(BaseModel):
     slug: str = Field(min_length=1, max_length=63, pattern=r"^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
     port: int = Field(ge=1, le=65535)
@@ -27,6 +33,7 @@ class VMActions(BaseModel):
     can_reboot: bool
     can_terminal: bool
     can_delete: bool
+    can_reinstall: bool = False
     can_recheck: bool = False
 
 
@@ -54,4 +61,3 @@ class JobOut(BaseModel):
     vm_id: UUID | None
     created_at: datetime | None
     updated_at: datetime | None
-

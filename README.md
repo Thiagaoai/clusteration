@@ -59,6 +59,16 @@ Depois acesse `http://localhost:8000`.
 O backend aplica migrations automaticamente no startup e sobe o FastAPI na porta `8000`.
 Veja também `docs/deployment.md`.
 
+Em produção, o banco precisa ficar em `/data`:
+
+```bash
+DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db
+```
+
+Se o deploy subir sem volume em `/data`, o container pode resetar inventário,
+jobs, senha alterada e histórico a cada rebuild. Valide isso em
+`GET /api/system/status` depois do login.
+
 Antes de criar VMs, valide o ambiente Proxmox:
 
 ```bash
@@ -68,6 +78,27 @@ python scripts/panel-doctor.py
 ```
 
 O painel também expõe `GET /api/readiness` autenticado. A criação de VM fica bloqueada com uma mensagem clara enquanto `PROXMOX_TOKEN_SECRET` e as chaves SSH do console não estiverem preenchidos.
+
+### Templates e reinstalação de VPS
+
+Templates esperados no Proxmox:
+
+- Debian 13: VMID `9000`
+- Ubuntu 26.04 LTS: VMID `9001`
+- Fedora Cloud 44: VMID `9002`
+- Hermes AI: VMID `9010`
+- OpenClaw AI: VMID `9011`
+- Claude CLI: VMID `9012`
+
+Para construir os templates no nó Proxmox:
+
+```bash
+cd backend
+sudo bash scripts/build-cloudinit-templates.sh
+```
+
+O inventário tem ação **Reinstalar** para resetar a VPS com outro template,
+nova senha root e registro em auditoria.
 
 ### Exposure proxy opcional
 

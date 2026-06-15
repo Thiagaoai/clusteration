@@ -20,21 +20,71 @@ def iso_now() -> str:
 
 async def seed_templates(db: AsyncSession, settings: Settings) -> None:
     seed = [
-        {"os": "debian", "name": "debian-13-cloudinit-template", "proxmox_template_vmid": 9000},
-        {"os": "ubuntu", "name": "ubuntu-2404-cloudinit-template", "proxmox_template_vmid": 9001},
+        {
+            "os": "debian",
+            "name": "Debian 13 cloud-init (stable/latest)",
+            "proxmox_template_vmid": settings.TEMPLATE_DEBIAN_VMID,
+            "defaults": {"family": "os", "version": "13/trixie"},
+        },
+        {
+            "os": "ubuntu",
+            "name": "Ubuntu 26.04 LTS cloud-init (latest LTS)",
+            "proxmox_template_vmid": settings.TEMPLATE_UBUNTU_VMID,
+            "defaults": {"family": "os", "version": "26.04/resolute"},
+        },
+        {
+            "os": "fedora",
+            "name": "Fedora Cloud 44 cloud-init (latest)",
+            "proxmox_template_vmid": settings.TEMPLATE_FEDORA_VMID,
+            "defaults": {"family": "os", "version": "44"},
+        },
+        {
+            "os": "hermes",
+            "name": "Hermes AI image (prebuilt)",
+            "proxmox_template_vmid": settings.TEMPLATE_HERMES_VMID,
+            "defaults": {"family": "ai", "base": "ubuntu", "bundle": "hermes"},
+        },
+        {
+            "os": "openclaw",
+            "name": "OpenClaw AI image (prebuilt)",
+            "proxmox_template_vmid": settings.TEMPLATE_OPENCLAW_VMID,
+            "defaults": {"family": "ai", "base": "ubuntu", "bundle": "openclaw"},
+        },
+        {
+            "os": "claude",
+            "name": "Claude CLI image (prebuilt)",
+            "proxmox_template_vmid": settings.TEMPLATE_CLAUDE_VMID,
+            "defaults": {"family": "ai", "base": "ubuntu", "bundle": "claude"},
+        },
     ]
     existing = {row.os: row for row in (await db.scalars(select(Template))).all()}
     for item in seed:
         row = existing.get(item["os"])
+        defaults = {
+            "enabled": True,
+            "node": settings.PROXMOX_DEFAULT_NODE,
+            **item.get("defaults", {}),
+        }
         if row is None:
-            db.add(Template(defaults={"enabled": True, "node": settings.PROXMOX_DEFAULT_NODE}, **item))
+            db.add(
+                Template(
+                    os=item["os"],
+                    name=item["name"],
+                    proxmox_template_vmid=item["proxmox_template_vmid"],
+                    defaults=defaults,
+                )
+            )
         else:
             # keep the clone-target node in sync with the configured default node,
             # so changing PROXMOX_DEFAULT_NODE in the env propagates on next deploy
-            defaults = dict(row.defaults or {})
-            if defaults.get("node") != settings.PROXMOX_DEFAULT_NODE:
-                defaults["node"] = settings.PROXMOX_DEFAULT_NODE
-                row.defaults = defaults
+            merged = {**defaults, **(row.defaults or {})}
+            merged["node"] = settings.PROXMOX_DEFAULT_NODE
+            if row.name != item["name"]:
+                row.name = item["name"]
+            if row.proxmox_template_vmid != item["proxmox_template_vmid"]:
+                row.proxmox_template_vmid = item["proxmox_template_vmid"]
+            if row.defaults != merged:
+                row.defaults = merged
     await db.commit()
 
 
@@ -66,6 +116,54 @@ async def create_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, 
     template = await db.scalar(select(Template).where(Template.os == vm.template))
     if template is None:
         raise RuntimeError("template não encontrado")
+    await provision_vm_from_template(db, settings, job, vm, template, root_password, phase="create")
+
+
+async def reinstall_vm_job(
+    db: AsyncSession,
+    settings: Settings,
+    job: Job,
+    vm: VM,
+    root_password: str,
+    template_os: str | None,
+) -> None:
+    target_os = template_os or vm.template
+    template = await db.scalar(select(Template).where(Template.os == target_os))
+    if template is None:
+        raise RuntimeError("template não encontrado")
+    if template.defaults and template.defaults.get("enabled") is False:
+        raise RuntimeError("template desabilitado")
+
+    vm.status = VMStatus.deleting.value
+    vm.ssh_status = SSHStatus.pending.value
+    await db.commit()
+
+    async with ProxmoxClient(settings) as proxmox:
+        await destroy_existing_vm(db, proxmox, job, vm, operation="reinstall-destroy")
+
+    vm.template = template.os
+    vm.proxmox_vmid = None
+    vm.ip_address = None
+    vm.node = (template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE
+    vm.status = VMStatus.provisioning.value
+    await db.commit()
+
+    await provision_vm_from_template(db, settings, job, vm, template, root_password, phase="reinstall")
+
+
+async def provision_vm_from_template(
+    db: AsyncSession,
+    settings: Settings,
+    job: Job,
+    vm: VM,
+    template: Template,
+    root_password: str,
+    phase: str,
+) -> None:
+    vm.node = (template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE
+    vm.template = template.os
+    vm.ssh_status = SSHStatus.pending.value
+    await db.commit()
 
     async with ProxmoxClient(settings) as proxmox:
         new_vmid = await proxmox.next_id()
@@ -73,7 +171,19 @@ async def create_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, 
             f"/nodes/{vm.node}/qemu/{template.proxmox_template_vmid}/clone",
             data={"newid": new_vmid, "name": vm.hostname, "full": 1},
         )
-        await set_job_meta(db, job, {"upid": upid, "node": vm.node, "operation": "clone", "polled_at": iso_now()})
+        await set_job_meta(
+            db,
+            job,
+            {
+                "upid": upid,
+                "node": vm.node,
+                "operation": f"{phase}:clone",
+                "template": template.os,
+                "template_vmid": template.proxmox_template_vmid,
+                "target_vmid": new_vmid,
+                "polled_at": iso_now(),
+            },
+        )
         await proxmox.wait_for_task(vm.node, upid)
 
         vm.proxmox_vmid = new_vmid
@@ -98,7 +208,11 @@ async def create_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, 
             data={"disk": "scsi0", "size": f"{vm.disk_gb}G"},
         )
         upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{new_vmid}/status/start")
-        await set_job_meta(db, job, {"upid": upid, "node": vm.node, "operation": "start", "polled_at": iso_now()})
+        await set_job_meta(
+            db,
+            job,
+            {"upid": upid, "node": vm.node, "operation": f"{phase}:start", "polled_at": iso_now()},
+        )
         await proxmox.wait_for_task(vm.node, upid)
 
         vm.status = VMStatus.running.value
@@ -108,13 +222,21 @@ async def create_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, 
         await db.commit()
 
         # Cloud-init templates ship with a baked machine-id, so every clone requests the
-        # same DHCP lease and collides on one IP — which makes the backend SSH to itself
-        # and breaks the web console. Reset the machine-id (agent is reachable now) and
-        # reboot so this VM gets its own unique lease, then refresh the recorded IP.
+        # same DHCP lease and collides on one IP. Reset it and reboot once to force a
+        # unique lease before exposing SSH in the panel.
         try:
             await proxmox.reset_machine_id(vm.node, new_vmid)
             reboot_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{new_vmid}/status/reboot")
-            await set_job_meta(db, job, {"upid": reboot_upid, "node": vm.node, "operation": "reboot-uniq", "polled_at": iso_now()})
+            await set_job_meta(
+                db,
+                job,
+                {
+                    "upid": reboot_upid,
+                    "node": vm.node,
+                    "operation": f"{phase}:reboot-uniq",
+                    "polled_at": iso_now(),
+                },
+            )
             await proxmox.wait_for_task(vm.node, reboot_upid)
             vm.ip_address = await proxmox.wait_for_ip(vm.node, new_vmid)
             await db.commit()
@@ -153,26 +275,51 @@ async def delete_vm_job(db: AsyncSession, settings: Settings, job: Job, vm: VM) 
     await db.commit()
     if vm.proxmox_vmid is not None:
         async with ProxmoxClient(settings) as proxmox:
-            # Proxmox refuses to destroy a running VM ("VM is running - destroy failed"),
-            # so stop it first if it's up. Best-effort: if the status check fails (e.g. the
-            # VM is already gone), fall through and let the destroy report the real state.
-            try:
-                current = await proxmox.get(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/current")
-                if isinstance(current, dict) and current.get("status") == "running":
-                    stop_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/stop")
-                    await set_job_meta(db, job, {"upid": stop_upid, "node": vm.node, "operation": "stop-before-delete", "polled_at": iso_now()})
-                    await proxmox.wait_for_task(vm.node, stop_upid)
-            except ProxmoxError:
-                pass
-            upid = await proxmox.delete(
-                f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}",
-                params={"purge": 1, "destroy-unreferenced-disks": 1},
-            )
-            await set_job_meta(db, job, {"upid": upid, "node": vm.node, "operation": "delete", "polled_at": iso_now()})
-            await proxmox.wait_for_task(vm.node, upid)
+            await destroy_existing_vm(db, proxmox, job, vm, operation="delete")
     vm.status = VMStatus.deleted.value
     vm.deleted_at = utcnow()
     await db.commit()
+
+
+async def destroy_existing_vm(
+    db: AsyncSession,
+    proxmox: ProxmoxClient,
+    job: Job,
+    vm: VM,
+    operation: str,
+) -> None:
+    if vm.proxmox_vmid is None:
+        return
+    # Proxmox refuses to destroy a running VM ("VM is running - destroy failed"),
+    # so stop it first if it is up. Best-effort: if status check fails (for
+    # example, VM is already gone), fall through and let destroy report reality.
+    try:
+        current = await proxmox.get(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/current")
+        if isinstance(current, dict) and current.get("status") == "running":
+            stop_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}/status/stop")
+            await set_job_meta(
+                db,
+                job,
+                {
+                    "upid": stop_upid,
+                    "node": vm.node,
+                    "operation": f"{operation}:stop",
+                    "polled_at": iso_now(),
+                },
+            )
+            await proxmox.wait_for_task(vm.node, stop_upid)
+    except ProxmoxError:
+        pass
+    upid = await proxmox.delete(
+        f"/nodes/{vm.node}/qemu/{vm.proxmox_vmid}",
+        params={"purge": 1, "destroy-unreferenced-disks": 1},
+    )
+    await set_job_meta(
+        db,
+        job,
+        {"upid": upid, "node": vm.node, "operation": operation, "polled_at": iso_now()},
+    )
+    await proxmox.wait_for_task(vm.node, upid)
 
 
 async def enqueue_ssh_check(db: AsyncSession, vm_id: uuid.UUID) -> Job:
@@ -186,4 +333,3 @@ async def enqueue_ssh_check(db: AsyncSession, vm_id: uuid.UUID) -> Job:
 async def set_job_meta(db: AsyncSession, job: Job, patch: dict) -> None:
     job.meta = {**(job.meta or {}), **patch}
     await db.commit()
-

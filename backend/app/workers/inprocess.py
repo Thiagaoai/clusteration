@@ -7,7 +7,7 @@ from sqlalchemy import select
 from app.core.config import get_settings
 from app.db.session import AsyncSessionLocal
 from app.models import Job, JobStatus, JobType, VM, VMStatus
-from app.services.lifecycle import create_vm_job, delete_vm_job, enqueue_ssh_check, power_job
+from app.services.lifecycle import create_vm_job, delete_vm_job, enqueue_ssh_check, power_job, reinstall_vm_job
 from app.services.terminal import check_ssh_ready
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,15 @@ async def dispatch(payload: dict) -> None:
                 if vm is None:
                     raise RuntimeError("VM não encontrada")
                 await create_vm_job(db, settings, job, vm, payload["root_password"])
+                job.status = JobStatus.success.value
+                await db.commit()
+                ssh_job = await enqueue_ssh_check(db, vm.id)
+                await enqueue({"type": JobType.ssh_readiness_check.value, "job_id": str(ssh_job.id), "vm_id": str(vm.id)})
+            elif job.type == JobType.reinstall_vm.value:
+                if vm is None:
+                    raise RuntimeError("VM não encontrada")
+                template_os = payload.get("template") or (job.meta or {}).get("template")
+                await reinstall_vm_job(db, settings, job, vm, payload["root_password"], template_os)
                 job.status = JobStatus.success.value
                 await db.commit()
                 ssh_job = await enqueue_ssh_check(db, vm.id)
@@ -87,10 +96,9 @@ async def requeue_queued_jobs() -> None:
     async with AsyncSessionLocal() as db:
         jobs = (await db.scalars(select(Job).where(Job.status == JobStatus.queued.value))).all()
         for job in jobs:
-            if job.type == JobType.create_vm.value:
+            if job.type in (JobType.create_vm.value, JobType.reinstall_vm.value):
                 job.status = JobStatus.failed.value
-                job.error = "job create_vm pendente não pode ser retomado porque a senha root não é persistida"
+                job.error = f"job {job.type} pendente não pode ser retomado porque a senha root não é persistida"
             else:
                 await enqueue({"type": job.type, "job_id": str(job.id), "vm_id": str(job.vm_id) if job.vm_id else None})
         await db.commit()
-

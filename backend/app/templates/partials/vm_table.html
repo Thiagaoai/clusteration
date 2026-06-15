@@ -26,6 +26,7 @@
               <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/stop" hx-swap="none" {% if not vm.actions.can_stop %}disabled{% endif %}>Stop</button>
               <button class="ghost-button" hx-post="/api/vms/{{ vm.id }}/reboot" hx-swap="none" {% if not vm.actions.can_reboot %}disabled{% endif %}>Reboot</button>
               <button class="primary-button" data-terminal="{{ vm.id }}" {% if not vm.actions.can_terminal %}disabled{% endif %}>Terminal</button>
+              <button class="danger-button" data-reinstall="{{ vm.id }}" data-hostname="{{ vm.hostname }}" {% if not vm.actions.can_reinstall %}disabled{% endif %}>Reinstall</button>
               <button class="danger-button" data-delete="{{ vm.id }}" data-hostname="{{ vm.hostname }}" {% if not vm.actions.can_delete %}disabled{% endif %}>Delete</button>
             </td>
           </tr>
@@ -38,4 +39,3 @@
   </section>
   <script src="/static/js/dashboard.js?v=20260608-2101"></script>
 </div>
-

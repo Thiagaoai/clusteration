@@ -71,6 +71,7 @@ class JobStatus(str, enum.Enum):
 
 class JobType(str, enum.Enum):
     create_vm = "create_vm"
+    reinstall_vm = "reinstall_vm"
     start_vm = "start_vm"
     stop_vm = "stop_vm"
     reboot_vm = "reboot_vm"
@@ -189,7 +190,7 @@ class AuditEvent(Base):
 class AdminCredential(Base):
     """Runtime-mutable admin password (so it can be reset/changed without a redeploy).
 
-    Seeded from the env ADMIN_PASSWORD/HASH on first boot; afterwards this is authoritative.
+    Seeded from the env ADMIN_PASSWORD_HASH on first boot; afterwards this is authoritative.
     """
 
     __tablename__ = "admin_credentials"
@@ -213,4 +214,3 @@ class PasswordReset(Base):
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
-
