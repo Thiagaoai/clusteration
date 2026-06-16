@@ -15,7 +15,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from app.api.auth import router as auth_router
 from app.api.internal import router as internal_router
 from app.api.routes import router as api_router
-from app.core.config import get_settings
+from app.core.config import effective_build_id, get_settings
 from app.core.errors import (
     AppHTTPException,
     RequestIdMiddleware,
@@ -111,14 +111,14 @@ app.include_router(internal_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "build": settings.APP_BUILD_ID}
+    return {"status": "ok", "build": effective_build_id(settings)}
 
 
 @app.get("/version")
 async def version():
     return {
         "status": "ok",
-        "build": settings.APP_BUILD_ID,
+        "build": effective_build_id(settings),
         "environment": settings.ENVIRONMENT,
     }
 

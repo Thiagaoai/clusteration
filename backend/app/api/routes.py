@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import require_admin
-from app.core.config import VM_SIZES, get_settings
+from app.core.config import VM_SIZES, effective_build_id, get_settings
 from app.core.errors import AppHTTPException
 from app.core.readiness import database_durability, missing_runtime_settings
 from app.db.session import get_db
@@ -154,7 +154,7 @@ async def system_status(db: AsyncSession = Depends(get_db)):
         "database": database_durability(settings),
         "templates_configured": template_count or 0,
         "worker_mode": settings.WORKER_MODE,
-        "build": settings.APP_BUILD_ID,
+        "build": effective_build_id(settings),
         "proxmox_check_url": "/api/system/proxmox",
     }
 

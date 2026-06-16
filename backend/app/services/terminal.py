@@ -102,7 +102,10 @@ async def validate_and_claim_session(db: AsyncSession, session_id: str) -> tuple
         return None
 
     ts = await db.scalar(select(TerminalSession).where(TerminalSession.id == sid))
-    if ts is None or ts.status != TerminalSessionStatus.pending.value:
+    if ts is None or ts.status not in (
+        TerminalSessionStatus.pending.value,
+        TerminalSessionStatus.connected.value,
+    ):
         return None
     now = datetime.now(UTC)
     if as_aware_utc(ts.expires_at) <= now:
@@ -120,7 +123,12 @@ async def validate_and_claim_session(db: AsyncSession, session_id: str) -> tuple
         return None
     result = await db.execute(
         update(TerminalSession)
-        .where(TerminalSession.id == sid, TerminalSession.status == TerminalSessionStatus.pending.value)
+        .where(
+            TerminalSession.id == sid,
+            TerminalSession.status.in_(
+                [TerminalSessionStatus.pending.value, TerminalSessionStatus.connected.value]
+            ),
+        )
         .values(status=TerminalSessionStatus.connected.value)
     )
     if result.rowcount != 1:

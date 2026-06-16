@@ -4,6 +4,9 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+SOURCE_BUILD_ID = "2026-06-16-proxmox-terminal-v6"
+UNSET_BUILD_IDS = {"", "dev", "unknown"}
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
@@ -77,3 +80,10 @@ VM_SIZES = {
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+def effective_build_id(settings: Settings) -> str:
+    configured = (settings.APP_BUILD_ID or "").strip()
+    if configured and configured not in UNSET_BUILD_IDS:
+        return configured
+    return SOURCE_BUILD_ID
