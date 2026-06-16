@@ -14,6 +14,13 @@ from app.models import Template
 from app.services.proxmox import ProxmoxAuthError, ProxmoxClient, ProxmoxError
 
 
+def print_token_fix() -> None:
+    print("Fix token/ACL on a Proxmox node:")
+    print("  bash backend/scripts/configure-panel-token.sh")
+    print("If the token already exists and the secret was lost:")
+    print("  ROTATE_TOKEN=1 bash backend/scripts/configure-panel-token.sh")
+
+
 async def main() -> int:
     settings = get_settings()
     missing = missing_runtime_settings(settings)
@@ -39,15 +46,19 @@ async def main() -> int:
                 disk_gb = await proxmox.vm_disk_size_gb(node, template.proxmox_template_vmid)
                 disk_text = f", disk={disk_gb}GB" if disk_gb else ""
                 print(f"OK template {template.os}:{template.proxmox_template_vmid} on {node}{disk_text}")
+            await proxmox.get(f"/nodes/{settings.PROXMOX_DEFAULT_NODE}/storage/{settings.PROXMOX_DEFAULT_STORAGE}/status")
+            print(f"OK storage {settings.PROXMOX_DEFAULT_NODE}/{settings.PROXMOX_DEFAULT_STORAGE}")
     except ProxmoxAuthError as exc:
         print(f"FAIL Proxmox auth: {exc}")
         print("Check PROXMOX_TOKEN_ID/PROXMOX_TOKEN_SECRET and API token permissions.")
+        print_token_fix()
         return 1
     except ProxmoxError as exc:
         print(f"FAIL Proxmox API: {exc}")
+        print_token_fix()
         return 1
 
-    print("READY panel can create VMs if templates exist on Proxmox.")
+    print("READY Proxmox API, storage and templates are reachable from the panel.")
     return 0
 
 

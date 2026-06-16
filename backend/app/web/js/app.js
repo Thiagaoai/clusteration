@@ -237,6 +237,7 @@ async function renderDashboard() {
   const dbWarning = systemStatus && systemStatus.database && !systemStatus.database.durable
     ? `<p class="error">Banco em storage não durável: ${esc(systemStatus.database.message)}. Configure DATABASE_URL em /data ou Postgres antes do próximo redeploy.</p>`
     : "";
+  const buildText = systemStatus && systemStatus.build ? `Build ${esc(systemStatus.build)}` : "Build não informado";
   const hasTransient = vms.some((vm) =>
     ["creating", "provisioning", "starting", "stopping", "rebooting", "deleting"].includes(vm.status),
   );
@@ -270,6 +271,15 @@ async function renderDashboard() {
     </section>
     <section class="content dashboard-content" id="inventory">
       ${dbWarning}
+      <section class="card ops-diagnostic-card">
+        <div>
+          <span class="eyebrow">Saúde operacional</span>
+          <h2>Proxmox e persistência</h2>
+          <p>${esc(systemStatus?.database?.message || "Banco não verificado")} · ${buildText}</p>
+        </div>
+        <button class="ghost-button" type="button" data-proxmox-check>Validar Proxmox</button>
+        <div class="diagnostic-output" id="proxmox-diagnostic" hidden></div>
+      </section>
       <section class="stats-grid">
         <article class="card stat-card green"><span>VMs ativas</span><strong>${vms.filter((vm) => vm.status === "running").length}</strong><small>Compute online agora</small></article>
         <article class="card stat-card blue"><span>Inventário total</span><strong>${vms.length}</strong><small>VMs gerenciadas</small></article>
@@ -330,7 +340,7 @@ function sshBadge(s) { return s === "ready" ? "badge-running" : (s === "failed" 
 function vmTable(vms) {
   const rows = vms.map((vm) => `
     <tr>
-      <td data-label="Hostname"><strong>${esc(vm.hostname)}</strong>${vm.last_error ? `<div class="vm-error" title="${esc(vm.last_error)}">⚠ ${esc(vm.last_error)}</div>` : ""}</td>
+      <td data-label="Hostname"><strong>${esc(vm.hostname)}</strong>${vm.last_error ? `<div class="vm-error" title="${esc(vmErrorText(vm))}">⚠ ${esc(vmErrorText(vm))}</div>` : ""}</td>
       <td data-label="Status"><span class="badge badge-${vm.status}">${statusLabel(vm.status)}</span></td>
       <td data-label="SSH"><span class="badge ${sshBadge(vm.ssh_status)}">${esc(vm.ssh_status)}</span></td>
       <td data-label="IP">${esc(vm.ip_address) || "—"}</td>
@@ -358,6 +368,15 @@ function vmTable(vms) {
       </div>
     </section>
   `;
+}
+
+function vmErrorText(vm) {
+  const parts = [vm.last_error || ""];
+  if (vm.last_error_job_type) parts.push(vm.last_error_job_type);
+  if (vm.last_error_at) {
+    try { parts.push(new Date(vm.last_error_at).toLocaleString()); } catch (_) {}
+  }
+  return parts.filter(Boolean).join(" · ");
 }
 
 async function errMsg(res) {
@@ -469,6 +488,30 @@ function reinstallModal({ host, currentTemplate, templates }) {
 }
 
 function bindDashboardActions() {
+  const diagButton = document.querySelector("[data-proxmox-check]");
+  if (diagButton) {
+    diagButton.addEventListener("click", async () => {
+      const output = document.getElementById("proxmox-diagnostic");
+      if (!output) return;
+      output.hidden = false;
+      output.innerHTML = `<span class="badge badge-pending">checando</span>`;
+      diagButton.disabled = true;
+      try {
+        const res = await api("/api/system/proxmox");
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data) {
+          output.innerHTML = `<p class="error">${esc((data && data.error && data.error.message) || "Diagnóstico indisponível.")}</p>`;
+          return;
+        }
+        output.innerHTML = renderProxmoxDiagnostic(data);
+      } catch (_) {
+        output.innerHTML = `<p class="error">Não foi possível executar o diagnóstico.</p>`;
+      } finally {
+        diagButton.disabled = false;
+      }
+    });
+  }
+
   document.querySelectorAll("[data-action]").forEach((button) => {
     button.addEventListener("click", () => withLoading(button, async () => {
       const res = await api(`/api/vms/${button.dataset.id}/${button.dataset.action}`, { method: "POST" });
@@ -537,6 +580,18 @@ function bindDashboardActions() {
       router();
     }));
   });
+}
+
+function renderProxmoxDiagnostic(data) {
+  const checks = data.checks || [];
+  const rows = checks.map((check) => {
+    const items = Array.isArray(check.items) && check.items.length
+      ? `<ul>${check.items.map((item) => `<li>${esc(item.os)} · VMID ${esc(item.vmid)} · ${esc(item.node)}${item.disk_gb ? ` · ${esc(item.disk_gb)} GB` : ""}</li>`).join("")}</ul>`
+      : "";
+    return `<li><span class="badge ${check.ok ? "badge-running" : "badge-error"}">${check.ok ? "ok" : "erro"}</span> <strong>${esc(check.name)}</strong> ${esc(check.message || "")}${items}</li>`;
+  }).join("");
+  const hint = data.setup_hint ? `<p class="diagnostic-hint">${esc(data.setup_hint)}</p>` : "";
+  return `<div class="diagnostic-result"><p><strong>${data.ok ? "Proxmox validado" : "Proxmox precisa de correção"}</strong></p><ul>${rows}</ul>${hint}</div>`;
 }
 
 async function renderNewVm() {

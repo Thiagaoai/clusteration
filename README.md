@@ -77,7 +77,24 @@ source .venv/bin/activate
 python scripts/panel-doctor.py
 ```
 
-O painel também expõe `GET /api/readiness` autenticado. A criação de VM fica bloqueada com uma mensagem clara enquanto `PROXMOX_TOKEN_SECRET` e as chaves SSH do console não estiverem preenchidos.
+O painel também expõe `GET /api/readiness` e `GET /api/system/proxmox`
+autenticados. A criação de VM fica bloqueada com uma mensagem clara enquanto
+`PROXMOX_TOKEN_SECRET` e as chaves SSH do console não estiverem preenchidos.
+
+Para preparar o usuário/token no shell do Proxmox, rode no node `pve1`:
+
+```bash
+bash backend/scripts/configure-panel-token.sh
+```
+
+Se o token já existir e você não tiver mais o secret, rotacione:
+
+```bash
+ROTATE_TOKEN=1 bash backend/scripts/configure-panel-token.sh
+```
+
+Esse script usa roles built-in válidas (`PVEVMAdmin`, `PVEAuditor` e
+`PVEDatastoreAdmin`) e evita privilégios inválidos como `VM.Monitor`.
 
 ### Templates e reinstalação de VPS
 

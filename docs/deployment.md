@@ -155,6 +155,43 @@ Dentro do ambiente com variáveis carregadas:
 python scripts/panel-doctor.py
 ```
 
+No painel autenticado, use também `GET /api/system/proxmox` ou o botão
+**Validar Proxmox** na tela inicial. Ele confirma API, storage e templates sem
+expor secrets.
+
+## Token Proxmox
+
+No shell de um node Proxmox, configure o usuário/token do painel com roles
+built-in válidas:
+
+```bash
+bash backend/scripts/configure-panel-token.sh
+```
+
+Se o token já existir e o secret tiver sido perdido, rotacione:
+
+```bash
+ROTATE_TOKEN=1 bash backend/scripts/configure-panel-token.sh
+```
+
+Depois coloque no Dokploy:
+
+```bash
+PROXMOX_TOKEN_ID=panel@pve!clusteration
+PROXMOX_TOKEN_SECRET=<value exibido uma única vez pelo Proxmox>
+```
+
+Se for testar em bash/zsh, use aspas simples no token id por causa do `!`:
+
+```bash
+export PROXMOX_TOKEN_ID='panel@pve!clusteration'
+```
+
+Não use `VM.Monitor` em custom role nesse cluster; o Proxmox recusou esse
+privilégio e a role não foi criada. O script usa `PVEVMAdmin`, `PVEAuditor` e
+`PVEDatastoreAdmin` para manter a criação, config, resize, start/stop/delete e
+leitura de templates funcionando.
+
 ## Templates cloud-init
 
 O painel espera templates no Proxmox:

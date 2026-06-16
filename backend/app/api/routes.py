@@ -26,6 +26,7 @@ from app.models import (
 from app.schemas.vms import DeleteVM, ExposureCreate, JobOut, ReinstallVM, VMCreate, VMOut
 from app.services.audit import record_audit
 from app.services.lifecycle import enqueue_ssh_check
+from app.services.proxmox import ProxmoxAuthError, ProxmoxClient, ProxmoxError
 from app.workers.inprocess import enqueue
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_admin)])
@@ -95,7 +96,7 @@ async def create_vm(payload: VMCreate, request: Request, db: AsyncSession = Depe
 @router.get("/vms")
 async def list_vms(db: AsyncSession = Depends(get_db)):
     vms = (await db.scalars(select(VM).where(VM.deleted_at.is_(None)).order_by(VM.created_at.desc()))).all()
-    errors: dict[uuid.UUID, str] = {}
+    errors: dict[uuid.UUID, Job] = {}
     if vms:
         jobs = (
             await db.scalars(
@@ -106,7 +107,7 @@ async def list_vms(db: AsyncSession = Depends(get_db)):
         ).all()
         for job in jobs:
             if job.vm_id is not None:
-                errors.setdefault(job.vm_id, job.error)
+                errors.setdefault(job.vm_id, job)
     return {"vms": [serialize_vm(vm, errors.get(vm.id)) for vm in vms]}
 
 
@@ -153,7 +154,88 @@ async def system_status(db: AsyncSession = Depends(get_db)):
         "database": database_durability(settings),
         "templates_configured": template_count or 0,
         "worker_mode": settings.WORKER_MODE,
+        "build": settings.APP_BUILD_ID,
+        "proxmox_check_url": "/api/system/proxmox",
     }
+
+
+@router.get("/system/proxmox")
+async def proxmox_diagnostics(db: AsyncSession = Depends(get_db)):
+    settings = get_settings()
+    checks: list[dict] = []
+    missing = missing_runtime_settings(settings)
+    if missing:
+        return {
+            "ok": False,
+            "checks": [
+                {
+                    "name": "runtime",
+                    "ok": False,
+                    "message": "variáveis ausentes: " + ", ".join(missing),
+                }
+            ],
+            "setup_hint": proxmox_setup_hint(),
+        }
+
+    templates = (await db.scalars(select(Template).order_by(Template.os))).all()
+    checks.append(
+        {
+            "name": "runtime",
+            "ok": True,
+            "message": "variáveis obrigatórias presentes",
+        }
+    )
+
+    try:
+        async with ProxmoxClient(settings) as proxmox:
+            next_id = await proxmox.next_id()
+            checks.append({"name": "nextid", "ok": True, "message": f"Proxmox API OK; próximo VMID {next_id}"})
+
+            storage_checks: dict[str, dict] = {}
+            template_results = []
+            for template in templates:
+                preferred_node = (template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE
+                node = await proxmox.resolve_template_node(preferred_node, template.proxmox_template_vmid)
+                disk_gb = await proxmox.vm_disk_size_gb(node, template.proxmox_template_vmid)
+                storage_key = f"{node}/{settings.PROXMOX_DEFAULT_STORAGE}"
+                if storage_key not in storage_checks:
+                    try:
+                        await proxmox.get(f"/nodes/{node}/storage/{settings.PROXMOX_DEFAULT_STORAGE}/status")
+                        storage_checks[storage_key] = {
+                            "name": f"storage:{storage_key}",
+                            "ok": True,
+                            "message": "storage acessível pelo token",
+                        }
+                    except ProxmoxError as exc:
+                        storage_checks[storage_key] = {
+                            "name": f"storage:{storage_key}",
+                            "ok": False,
+                            "message": str(exc),
+                        }
+                template_results.append(
+                    {
+                        "os": template.os,
+                        "vmid": template.proxmox_template_vmid,
+                        "node": node,
+                        "disk_gb": disk_gb,
+                    }
+                )
+            checks.extend(storage_checks.values())
+            checks.append(
+                {
+                    "name": "templates",
+                    "ok": True,
+                    "message": f"{len(template_results)} templates resolvidos",
+                    "items": template_results,
+                }
+            )
+    except ProxmoxAuthError as exc:
+        checks.append({"name": "proxmox-auth", "ok": False, "message": str(exc)})
+    except ProxmoxError as exc:
+        checks.append({"name": "proxmox-api", "ok": False, "message": str(exc)})
+
+    ok = all(check.get("ok") for check in checks)
+    return {"ok": ok, "checks": checks, "setup_hint": proxmox_setup_hint() if not ok else None}
 
 
 @router.get("/audit")
@@ -197,6 +279,17 @@ async def list_jobs(db: AsyncSession = Depends(get_db), limit: int = 50, offset:
             for job in rows
         ]
     }
+
+
+def proxmox_setup_hint() -> str:
+    return (
+        "No shell do Proxmox, use roles built-in para evitar privilégio inválido: "
+        "pveum user add panel@pve || true; "
+        "pveum aclmod / -user panel@pve -role PVEVMAdmin; "
+        "pveum aclmod /storage/local-lvm -user panel@pve -role PVEDatastoreAdmin; "
+        "pveum aclmod /storage/local -user panel@pve -role PVEDatastoreAdmin; "
+        "pveum user token add panel@pve clusteration --privsep 0"
+    )
 
 
 @router.get("/vms/{vm_id}")
@@ -400,9 +493,12 @@ async def enqueue_power_job(db: AsyncSession, vm: VM, job_type: JobType):
     return {"job_id": str(job.id), "status": "queued"}
 
 
-def serialize_vm(vm: VM, last_error: str | None = None) -> VMOut:
+def serialize_vm(vm: VM, last_error: Job | str | None = None) -> VMOut:
     running = vm.status == VMStatus.running.value
     ssh_ready = vm.ssh_status == SSHStatus.ready.value
+    error_text = last_error.error if isinstance(last_error, Job) else last_error
+    error_at = last_error.created_at if isinstance(last_error, Job) else None
+    error_type = last_error.type if isinstance(last_error, Job) else None
     actions = {
         "can_start": vm.status in (VMStatus.stopped.value, VMStatus.error.value),
         "can_stop": running,
@@ -424,7 +520,9 @@ def serialize_vm(vm: VM, last_error: str | None = None) -> VMOut:
         ip_address=vm.ip_address,
         created_at=vm.created_at,
         actions=actions,
-        last_error=last_error if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
+        last_error=error_text if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
+        last_error_at=error_at if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
+        last_error_job_type=error_type if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
     )
 
 

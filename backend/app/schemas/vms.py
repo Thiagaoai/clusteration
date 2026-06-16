@@ -50,6 +50,8 @@ class VMOut(BaseModel):
     created_at: datetime | None
     actions: VMActions
     last_error: str | None = None
+    last_error_at: datetime | None = None
+    last_error_job_type: str | None = None
 
 
 class JobOut(BaseModel):
