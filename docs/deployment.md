@@ -65,12 +65,13 @@ ADMIN_USERNAME=admin
 ADMIN_PASSWORD_HASH=...
 DATABASE_URL=sqlite+aiosqlite:////data/vmpanel.db
 BACKUP_DIR=/data/backups
-PROXMOX_HOST=https://10.1.10.209:8006
+PROXMOX_HOST=https://10.1.10.15:8006
 PROXMOX_TOKEN_ID=...
 PROXMOX_TOKEN_SECRET=...
-PROXMOX_DEFAULT_NODE=pve
+PROXMOX_DEFAULT_NODE=pve1
 CONSOLE_SSH_PRIVATE_KEY=...
 CONSOLE_SSH_PUBLIC_KEY=...
+TERMINAL_SESSION_TTL_SECONDS=300
 TEMPLATE_DEBIAN_VMID=9000
 TEMPLATE_UBUNTU_VMID=9001
 TEMPLATE_FEDORA_VMID=9002
@@ -154,7 +155,11 @@ O painel espera templates no Proxmox:
 - OpenClaw AI image: VMID `9011`
 - Claude CLI image: VMID `9012`
 
-Eles devem existir no node configurado em `PROXMOX_DEFAULT_NODE` e estar marcados como template.
+Eles devem existir em algum node do cluster e estar marcados como template. Como
+esse cluster usa storage local por node, mantenha `PROXMOX_DEFAULT_NODE=pve1`
+quando os templates estiverem em `pve1`. O backend também tenta localizar o node
+real do template pelo VMID antes de clonar, para evitar falhas causadas por
+`pve`/`pve1` errado.
 
 Para criar ou recriar esses templates no nó Proxmox:
 
@@ -180,6 +185,8 @@ sudo REPLACE_EXISTING=1 bash scripts/build-cloudinit-templates.sh
 As imagens AI usam Ubuntu como base. O script expande a imagem para `16G`
 antes da instalação offline dos pacotes; ajuste com `AI_IMAGE_SIZE` se precisar.
 O release da imagem Fedora pode ser sobrescrito com `FEDORA_IMAGE_RELEASE`.
+O painel nunca tenta reduzir disco no Proxmox: se o template já tiver 16GB e a
+requisição vier com 12GB, a VM sobe com 16GB e o job registra o ajuste.
 
 As imagens AI aceitam overrides de instalação:
 

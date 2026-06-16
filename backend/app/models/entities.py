@@ -97,7 +97,7 @@ class VM(Base):
     memory_mb: Mapped[int] = mapped_column(Integer, nullable=False, default=2048)
     disk_gb: Mapped[int] = mapped_column(Integer, nullable=False, default=12)
     proxmox_vmid: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    node: Mapped[str] = mapped_column(String(128), nullable=False, default="pve")
+    node: Mapped[str] = mapped_column(String(128), nullable=False, default="pve1")
     status: Mapped[str] = mapped_column(String(32), nullable=False, default=VMStatus.creating.value)
     ssh_status: Mapped[str] = mapped_column(String(32), nullable=False, default=SSHStatus.pending.value)
     ip_address: Mapped[str | None] = mapped_column(String(64), nullable=True)

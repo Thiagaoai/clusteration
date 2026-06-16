@@ -81,7 +81,7 @@ O painel também expõe `GET /api/readiness` autenticado. A criação de VM fica
 
 ### Templates e reinstalação de VPS
 
-Templates esperados no Proxmox:
+Templates esperados no Proxmox, normalmente no node `pve1`:
 
 - Debian 13: VMID `9000`
 - Ubuntu 26.04 LTS: VMID `9001`
@@ -99,6 +99,10 @@ sudo bash scripts/build-cloudinit-templates.sh
 
 O inventário tem ação **Reinstalar** para resetar a VPS com outro template,
 nova senha root e registro em auditoria.
+
+Como o cluster não tem storage compartilhado, o painel resolve o node real do
+template pelo VMID antes de clonar. Mantenha `PROXMOX_DEFAULT_NODE=pve1` no
+Dokploy enquanto os templates estiverem em `pve1`.
 
 ### Exposure proxy opcional
 

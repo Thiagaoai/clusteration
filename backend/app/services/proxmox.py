@@ -1,4 +1,6 @@
 import asyncio
+import math
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -65,10 +67,10 @@ class ProxmoxClient:
     async def get(self, path: str, **kwargs) -> Any:
         return await self._request("GET", path, **kwargs)
 
-    async def post(self, path: str, data: dict[str, Any] | None = None, **kwargs) -> Any:
+    async def post(self, path: str, data: Any | None = None, **kwargs) -> Any:
         return await self._request("POST", path, data=data, **kwargs)
 
-    async def put(self, path: str, data: dict[str, Any] | None = None, **kwargs) -> Any:
+    async def put(self, path: str, data: Any | None = None, **kwargs) -> Any:
         return await self._request("PUT", path, data=data, **kwargs)
 
     async def delete(self, path: str, **kwargs) -> Any:
@@ -76,6 +78,75 @@ class ProxmoxClient:
 
     async def next_id(self) -> int:
         return int(await self.get("/cluster/nextid"))
+
+    async def cluster_resources(self, resource_type: str = "vm") -> list[dict[str, Any]]:
+        data = await self.get("/cluster/resources", params={"type": resource_type})
+        return data if isinstance(data, list) else []
+
+    async def find_vm_resource(self, vmid: int) -> dict[str, Any] | None:
+        for resource in await self.cluster_resources("vm"):
+            try:
+                if int(resource.get("vmid")) == int(vmid):
+                    return resource
+            except (TypeError, ValueError):
+                continue
+        return None
+
+    async def vm_config(self, node: str, vmid: int) -> dict[str, Any]:
+        data = await self.get(f"/nodes/{node}/qemu/{vmid}/config")
+        return data if isinstance(data, dict) else {}
+
+    async def resolve_template_node(self, preferred_node: str, template_vmid: int) -> str:
+        """Find the node that actually owns the template VMID.
+
+        The cluster uses node-local storage, so cloning from a synthetic/default node
+        (for example "pve" instead of "pve1") fails even when the token is valid.
+        """
+        preferred_error = ""
+        if preferred_node:
+            try:
+                config = await self.vm_config(preferred_node, template_vmid)
+                if is_template_config(config):
+                    return preferred_node
+                raise ProxmoxError(
+                    f"VMID {template_vmid} existe em {preferred_node}, mas não está marcado como template"
+                )
+            except ProxmoxAuthError:
+                raise
+            except ProxmoxError as exc:
+                preferred_error = str(exc)
+
+        resource = await self.find_vm_resource(template_vmid)
+        if resource is None:
+            suffix = f" node configurado respondeu: {preferred_error}" if preferred_error else ""
+            raise ProxmoxError(f"template VMID {template_vmid} não encontrado no cluster.{suffix}")
+        if not is_template_resource(resource):
+            raise ProxmoxError(f"VMID {template_vmid} encontrado, mas não está marcado como template")
+        node = str(resource.get("node") or "").strip()
+        if not node:
+            raise ProxmoxError(f"template VMID {template_vmid} encontrado sem node no Proxmox")
+        return node
+
+    async def resolve_vm_node(self, preferred_node: str, vmid: int) -> str:
+        if preferred_node:
+            try:
+                await self.get(f"/nodes/{preferred_node}/qemu/{vmid}/status/current")
+                return preferred_node
+            except ProxmoxAuthError:
+                raise
+            except ProxmoxError:
+                pass
+        resource = await self.find_vm_resource(vmid)
+        if resource is None:
+            raise ProxmoxError(f"VMID {vmid} não encontrado no cluster")
+        node = str(resource.get("node") or "").strip()
+        if not node:
+            raise ProxmoxError(f"VMID {vmid} encontrado sem node no Proxmox")
+        return node
+
+    async def vm_disk_size_gb(self, node: str, vmid: int, disk: str = "scsi0") -> int | None:
+        config = await self.vm_config(node, vmid)
+        return parse_disk_size_gb(str(config.get(disk) or ""))
 
     async def wait_for_task(self, node: str, upid: str, timeout: float = 600.0, interval: float = 3.0) -> str:
         loop = asyncio.get_running_loop()
@@ -110,7 +181,7 @@ class ProxmoxClient:
         """Run a shell script inside the guest via the qemu-guest-agent and return its stdout."""
         started = await self.post(
             f"/nodes/{node}/qemu/{vmid}/agent/exec",
-            data={"command": ["bash", "-c", script]},
+            data={"command": "bash", "extra-args": ["-lc", script], "capture-output": "1"},
         )
         pid = started.get("pid") if isinstance(started, dict) else None
         if pid is None:
@@ -178,6 +249,24 @@ def parse_first_ipv4(data: Any) -> str | None:
     return None
 
 
+def is_template_resource(resource: dict[str, Any]) -> bool:
+    return str(resource.get("template") or "").lower() in {"1", "true", "yes"}
+
+
+def is_template_config(config: dict[str, Any]) -> bool:
+    return str(config.get("template") or "").lower() in {"1", "true", "yes"}
+
+
+def parse_disk_size_gb(value: str) -> int | None:
+    match = re.search(r"(?:^|,)size=(\d+(?:\.\d+)?)([KMGT])(?:i?B)?(?:,|$)", value, re.IGNORECASE)
+    if not match:
+        return None
+    amount = float(match.group(1))
+    unit = match.group(2).upper()
+    factor = {"K": 1 / (1024 * 1024), "M": 1 / 1024, "G": 1, "T": 1024}[unit]
+    return max(1, math.ceil(amount * factor))
+
+
 def sanitize_proxmox_error(exc: Exception | None) -> str:
     if exc is None:
         return "erro ao chamar Proxmox"
@@ -186,6 +275,8 @@ def sanitize_proxmox_error(exc: Exception | None) -> str:
         try:
             payload = exc.response.json()
             detail = str(payload.get("message") or payload.get("errors") or "")
+            if payload.get("errors") and payload.get("message"):
+                detail = f"{payload.get('message')}: {payload.get('errors')}"
         except Exception:
             detail = exc.response.text.strip()
         detail = detail.replace("\n", " ").strip()

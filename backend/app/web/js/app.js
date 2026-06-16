@@ -551,7 +551,7 @@ async function renderNewVm() {
       ${options.missing_runtime.length ? `<p class="error">Ambiente Proxmox ainda não configurado: ${options.missing_runtime.join(", ")}.</p>` : ""}
       <form id="create-vm-form" class="form form-grid">
         <label><span>Hostname</span><input name="hostname" pattern="[a-zA-Z0-9](-?[a-zA-Z0-9]){0,126}" title="letras, números e hífen (não pode começar/terminar com hífen)" required></label>
-        <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${template.os}" ${template.enabled ? "" : "disabled"}>${template.name}</option>`).join("")}</select></label>
+        <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${template.os}" data-min-disk="${Number(template.min_disk_gb || 0)}" ${template.enabled ? "" : "disabled"}>${template.name}</option>`).join("")}</select></label>
         <label><span>Tamanho</span><select name="size">${Object.entries(options.sizes).map(([key, size]) => `<option value="${key}">${size.label}</option>`).join("")}</select></label>
         <label><span>Disco</span><select name="disk_gb">${options.disk_choices.map((gb) => `<option value="${gb}">${gb} GB</option>`).join("")}</select></label>
         <label><span>Senha root</span><div class="password-field"><input id="root-password" name="root_password" type="password" minlength="8" required>${pwToggle()}</div></label>
@@ -564,7 +564,23 @@ async function renderNewVm() {
     </div>
   `);
   bindShellEvents();
-  document.getElementById("create-vm-form").addEventListener("submit", async (event) => {
+  const createForm = document.getElementById("create-vm-form");
+  const templateSelect = createForm.elements.template;
+  const diskSelect = createForm.elements.disk_gb;
+  const syncDiskChoices = () => {
+    const selected = templateSelect.selectedOptions[0];
+    const minDisk = Number(selected?.dataset?.minDisk || 0);
+    Array.from(diskSelect.options).forEach((option) => {
+      option.disabled = Number(option.value) < minDisk;
+    });
+    if (Number(diskSelect.value) < minDisk) {
+      const next = Array.from(diskSelect.options).find((option) => !option.disabled);
+      if (next) diskSelect.value = next.value;
+    }
+  };
+  templateSelect.addEventListener("change", syncDiskChoices);
+  syncDiskChoices();
+  createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     const data = Object.fromEntries(new FormData(event.currentTarget).entries());
     data.disk_gb = Number(data.disk_gb);
@@ -655,6 +671,7 @@ function renderTerminal() {
   document.getElementById("term-newtab").addEventListener("click", () => mgr.newTab());
   document.getElementById("term-full").addEventListener("click", () => mgr.toggleFullscreen());
   if (sessionId) mgr.addTab(sessionId);
+  else if (vmId) mgr.newTab();
 }
 
 class TerminalWorkspace {

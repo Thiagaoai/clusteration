@@ -33,6 +33,12 @@ async def main() -> int:
         async with ProxmoxClient(settings) as proxmox:
             next_id = await proxmox.next_id()
             print(f"OK Proxmox auth/API nextid={next_id}")
+            for template in templates:
+                preferred_node = (template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE
+                node = await proxmox.resolve_template_node(preferred_node, template.proxmox_template_vmid)
+                disk_gb = await proxmox.vm_disk_size_gb(node, template.proxmox_template_vmid)
+                disk_text = f", disk={disk_gb}GB" if disk_gb else ""
+                print(f"OK template {template.os}:{template.proxmox_template_vmid} on {node}{disk_text}")
     except ProxmoxAuthError as exc:
         print(f"FAIL Proxmox auth: {exc}")
         print("Check PROXMOX_TOKEN_ID/PROXMOX_TOKEN_SECRET and API token permissions.")
@@ -47,4 +53,3 @@ async def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(asyncio.run(main()))
-

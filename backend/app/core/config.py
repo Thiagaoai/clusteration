@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     PROXMOX_HOST: str = "https://10.1.10.209:8006"
     PROXMOX_TOKEN_ID: str = ""
     PROXMOX_TOKEN_SECRET: str = ""
-    PROXMOX_DEFAULT_NODE: str = "pve"
+    PROXMOX_DEFAULT_NODE: str = "pve1"
     PROXMOX_DEFAULT_STORAGE: str = "local-lvm"
     PROXMOX_DEFAULT_BRIDGE: str = "vmbr0"
     TEMPLATE_DEBIAN_VMID: int = 9000
@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     CONSOLE_SSH_PUBLIC_KEY: str = ""
     CONSOLE_SSH_USER: str = "root"
     CONSOLE_SSH_PORT: int = 22
+    TERMINAL_SESSION_TTL_SECONDS: int = 300
 
     EXPOSURE_BASE_DOMAIN: str = "apps.exemplo.internal"
     EXPOSURE_PROXY_SECRET: str = ""
@@ -63,7 +64,7 @@ class Settings(BaseSettings):
     REDIS_URL: str = "redis://localhost:6379/0"
 
     VM_SIZE_DEFAULT: str = "small"
-    VM_DISK_CHOICES: list[int] = Field(default_factory=lambda: [12, 36, 64, 100])
+    VM_DISK_CHOICES: list[int] = Field(default_factory=lambda: [12, 16, 36, 64, 100])
 
 
 VM_SIZES = {

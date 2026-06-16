@@ -2,6 +2,7 @@ import asyncio
 import base64
 import json
 import uuid
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -30,13 +31,19 @@ class TerminalProcess:
     proc: asyncssh.SSHClientProcess
 
     async def close(self) -> None:
-        self.proc.terminate()
-        self.conn.close()
-        await self.conn.wait_closed()
+        with suppress(Exception):
+            self.proc.terminate()
+        with suppress(Exception):
+            self.conn.close()
+            await self.conn.wait_closed()
 
 
 def _load_private_key(settings: Settings):
-    raw = base64.b64decode(settings.CONSOLE_SSH_PRIVATE_KEY).decode("utf-8")
+    configured = settings.CONSOLE_SSH_PRIVATE_KEY.strip()
+    if configured.startswith("-----BEGIN"):
+        raw = configured
+    else:
+        raw = base64.b64decode(configured).decode("utf-8")
     return asyncssh.import_private_key(raw)
 
 
@@ -49,6 +56,9 @@ async def open_terminal(ip: str, settings: Settings, cols: int = 120, rows: int 
                 username=settings.CONSOLE_SSH_USER,
                 client_keys=[_load_private_key(settings)],
                 known_hosts=None,
+                login_timeout=15.0,
+                keepalive_interval=20,
+                keepalive_count_max=3,
             ),
             timeout=15.0,
         )
@@ -165,6 +175,7 @@ async def terminal_websocket(websocket: WebSocket, db: AsyncSession, settings: S
                         last_input = asyncio.get_running_loop().time()
                         term.proc.change_terminal_size(int(payload["cols"]), int(payload["rows"]))
                     elif payload.get("type") == "ping":
+                        last_input = asyncio.get_running_loop().time()
                         await websocket.send_text(json.dumps({"type": "pong"}))
 
         tasks = {asyncio.create_task(ssh_to_ws()), asyncio.create_task(ws_to_ssh())}
@@ -192,4 +203,3 @@ async def terminal_websocket(websocket: WebSocket, db: AsyncSession, settings: S
             await websocket.close(code=1000)
         except Exception:
             pass
-

@@ -51,13 +51,15 @@ async def create_vm(payload: VMCreate, request: Request, db: AsyncSession = Depe
     if template.defaults and template.defaults.get("enabled") is False:
         raise AppHTTPException("TEMPLATE_DISABLED", "template desabilitado", 400)
 
+    min_disk_gb = int((template.defaults or {}).get("min_disk_gb") or 0)
+    effective_disk_gb = max(payload.disk_gb, min_disk_gb)
     size = VM_SIZES[payload.size]
     vm = VM(
         hostname=payload.hostname,
         template=payload.template,
         cpu=size["cpu"],
         memory_mb=size["memory_mb"],
-        disk_gb=payload.disk_gb,
+        disk_gb=effective_disk_gb,
         node=(template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE,
         status=VMStatus.creating.value,
         ssh_status=SSHStatus.pending.value,
@@ -66,7 +68,16 @@ async def create_vm(payload: VMCreate, request: Request, db: AsyncSession = Depe
     await db.flush()
     job = Job(type=JobType.create_vm.value, status=JobStatus.queued.value, vm_id=vm.id, meta={})
     db.add(job)
-    await _audit_vm(db, request, "vm.create", vm, template=payload.template, size=payload.size, disk_gb=payload.disk_gb)
+    await _audit_vm(
+        db,
+        request,
+        "vm.create",
+        vm,
+        template=payload.template,
+        size=payload.size,
+        disk_gb=effective_disk_gb,
+        requested_disk_gb=payload.disk_gb,
+    )
     await db.commit()
     await db.refresh(vm)
     await db.refresh(job)
@@ -108,6 +119,8 @@ async def list_templates(db: AsyncSession = Depends(get_db)):
                 "name": template.name,
                 "os": template.os,
                 "enabled": (template.defaults or {}).get("enabled") is not False,
+                "defaults": template.defaults or {},
+                "min_disk_gb": int((template.defaults or {}).get("min_disk_gb") or 0),
             }
             for template in templates
         ]
@@ -316,7 +329,8 @@ async def create_terminal_session(vm_id: uuid.UUID, db: AsyncSession = Depends(g
     vm = await get_live_vm(db, vm_id)
     if vm.status != VMStatus.running.value or vm.ssh_status != SSHStatus.ready.value:
         raise AppHTTPException("TERMINAL_NOT_READY", "terminal ainda não está pronto", 409)
-    expires_at = datetime.now(UTC) + timedelta(seconds=60)
+    ttl = max(60, int(get_settings().TERMINAL_SESSION_TTL_SECONDS))
+    expires_at = datetime.now(UTC) + timedelta(seconds=ttl)
     ts = TerminalSession(vm_id=vm.id, status=TerminalSessionStatus.pending.value, expires_at=expires_at)
     db.add(ts)
     await db.commit()
