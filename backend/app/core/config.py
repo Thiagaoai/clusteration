@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     ENVIRONMENT: str = "development"
+    APP_BUILD_ID: str = "dev"
     SECRET_KEY: str = "dev-only-change-me"
     SESSION_MAX_AGE: int = 86400
     SESSION_SAME_SITE: Literal["lax", "strict", "none"] = "lax"

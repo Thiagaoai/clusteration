@@ -58,6 +58,7 @@ Variáveis (aba Environment, em qualquer um dos dois modos):
 
 ```bash
 ENVIRONMENT=production
+APP_BUILD_ID=...
 SECRET_KEY=...
 SESSION_SAME_SITE=strict
 SESSION_HTTPS_ONLY=true
@@ -135,6 +136,16 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```bash
 curl http://127.0.0.1:8000/health
 ```
+
+Para confirmar que o Dokploy está servindo o build novo, use:
+
+```bash
+curl https://app.thiagao.online/version
+```
+
+O campo `build` deve mudar a cada rebuild/deploy. No Dokploy, defina
+`APP_BUILD_ID` com o commit ou identificador do deploy quando quiser rastreio
+exato.
 
 ## Validar Proxmox
 

@@ -111,7 +111,16 @@ app.include_router(internal_router)
 
 @app.get("/health")
 async def health():
-    return {"status": "ok"}
+    return {"status": "ok", "build": settings.APP_BUILD_ID}
+
+
+@app.get("/version")
+async def version():
+    return {
+        "status": "ok",
+        "build": settings.APP_BUILD_ID,
+        "environment": settings.ENVIRONMENT,
+    }
 
 
 @app.websocket("/terminal/ws")
@@ -145,4 +154,3 @@ async def spa(full_path: str):
     if index_file.is_file():
         return FileResponse(index_file)
     raise HTTPException(status_code=404)
-
