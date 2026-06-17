@@ -171,8 +171,23 @@ async def provision_vm_from_template(
     await db.commit()
 
     async with ProxmoxClient(settings) as proxmox:
+        await set_job_meta(
+            db,
+            job,
+            {
+                "operation": f"{phase}:resolve-template",
+                "template": template.os,
+                "template_vmid": template.proxmox_template_vmid,
+                "polled_at": iso_now(),
+            },
+        )
         vm.node = await proxmox.resolve_template_node(preferred_node, template.proxmox_template_vmid)
         await db.commit()
+        await set_job_meta(
+            db,
+            job,
+            {"operation": f"{phase}:allocate-vmid", "node": vm.node, "polled_at": iso_now()},
+        )
         new_vmid = await proxmox.next_id()
         upid = await proxmox.post(
             f"/nodes/{vm.node}/qemu/{template.proxmox_template_vmid}/clone",
@@ -197,6 +212,11 @@ async def provision_vm_from_template(
         vm.status = VMStatus.provisioning.value
         await db.commit()
 
+        await set_job_meta(
+            db,
+            job,
+            {"operation": f"{phase}:config-cloudinit", "target_vmid": new_vmid, "polled_at": iso_now()},
+        )
         await proxmox.put(
             f"/nodes/{vm.node}/qemu/{new_vmid}/config",
             data={
@@ -223,6 +243,11 @@ async def provision_vm_from_template(
         await db.commit()
 
         try:
+            await set_job_meta(
+                db,
+                job,
+                {"operation": f"{phase}:wait-ip", "node": vm.node, "target_vmid": new_vmid, "polled_at": iso_now()},
+            )
             vm.ip_address = await proxmox.wait_for_ip(vm.node, new_vmid, timeout=600.0)
             await db.commit()
         except ProxmoxTimeoutError as exc:
@@ -239,6 +264,11 @@ async def provision_vm_from_template(
         # same DHCP lease and collides on one IP. Reset it and reboot once to force a
         # unique lease before exposing SSH in the panel.
         try:
+            await set_job_meta(
+                db,
+                job,
+                {"operation": f"{phase}:reset-machine-id", "node": vm.node, "target_vmid": new_vmid, "polled_at": iso_now()},
+            )
             await proxmox.reset_machine_id(vm.node, new_vmid)
             reboot_upid = await proxmox.post(f"/nodes/{vm.node}/qemu/{new_vmid}/status/reboot")
             await set_job_meta(
@@ -252,11 +282,21 @@ async def provision_vm_from_template(
                 },
             )
             await proxmox.wait_for_task(vm.node, reboot_upid)
+            await set_job_meta(
+                db,
+                job,
+                {"operation": f"{phase}:wait-ip-after-reboot", "node": vm.node, "target_vmid": new_vmid, "polled_at": iso_now()},
+            )
             vm.ip_address = await proxmox.wait_for_ip(vm.node, new_vmid, timeout=300.0)
             await db.commit()
         except ProxmoxError:
             # Non-fatal: the VM exists and runs; console SSH may need a manual reset.
             pass
+        await set_job_meta(
+            db,
+            job,
+            {"operation": f"{phase}:ready", "node": vm.node, "target_vmid": new_vmid, "polled_at": iso_now()},
+        )
 
 
 async def power_job(db: AsyncSession, settings: Settings, job: Job, vm: VM, operation: JobType) -> None:
@@ -356,6 +396,11 @@ async def ensure_disk_size(
     vmid: int,
     phase: str,
 ) -> None:
+    await set_job_meta(
+        db,
+        job,
+        {"operation": f"{phase}:resize-check", "target_vmid": vmid, "polled_at": iso_now()},
+    )
     current_gb = await proxmox.vm_disk_size_gb(vm.node, vmid)
     requested_gb = int(vm.disk_gb)
     if current_gb is not None and requested_gb <= current_gb:

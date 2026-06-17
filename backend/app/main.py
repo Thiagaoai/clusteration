@@ -88,7 +88,10 @@ async def spa_no_cache(request, call_next):
     response = await call_next(request)
     path = request.url.path
     is_api = path.startswith(("/api", "/health", "/terminal"))
-    if not is_api and request.method in ("GET", "HEAD"):
+    is_asset = path.startswith(("/js/", "/css/", "/img/"))
+    if is_asset and request.method in ("GET", "HEAD"):
+        response.headers["Cache-Control"] = "no-cache, must-revalidate"
+    elif not is_api and request.method in ("GET", "HEAD"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
     return response
 

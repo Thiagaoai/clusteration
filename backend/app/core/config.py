@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-SOURCE_BUILD_ID = "2026-06-16-proxmox-terminal-v6"
+SOURCE_BUILD_ID = "2026-06-17-vm-create-flow-v1"
 UNSET_BUILD_IDS = {"", "dev", "unknown"}
 
 
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     RESET_EMAIL_TO: str = ""
     RESET_CODE_TTL_MINUTES: int = 15
 
-    PROXMOX_HOST: str = "https://10.1.10.209:8006"
+    PROXMOX_HOST: str = ""
     PROXMOX_TOKEN_ID: str = ""
     PROXMOX_TOKEN_SECRET: str = ""
     PROXMOX_DEFAULT_NODE: str = "pve1"

@@ -1,5 +1,6 @@
 const app = document.getElementById("app");
 let dashboardRefresh = null;
+let createMonitorRefresh = null;
 
 const THEME_KEY = "tac-theme";
 function currentTheme() { try { return localStorage.getItem(THEME_KEY) || "light"; } catch (_) { return "light"; } }
@@ -241,6 +242,8 @@ async function renderDashboard() {
   const hasTransient = vms.some((vm) =>
     ["creating", "provisioning", "starting", "stopping", "rebooting", "deleting"].includes(vm.status),
   );
+  const hasSshPending = vms.some((vm) => vm.status === "running" && vm.ssh_status === "pending");
+  const hasWork = hasTransient || hasSshPending;
   app.innerHTML = shell(`
     <section class="cluster-admin-dashboard">
       <video id="clusteration-hero-video" class="dashboard-video" muted autoplay loop playsinline data-hls-src="https://stream.mux.com/tLkHO1qZoaaQOUeVWo8hEBeGQfySP02EPS02BmnNFyXys.m3u8"></video>
@@ -283,7 +286,7 @@ async function renderDashboard() {
       <section class="stats-grid">
         <article class="card stat-card green"><span>VMs ativas</span><strong>${vms.filter((vm) => vm.status === "running").length}</strong><small>Compute online agora</small></article>
         <article class="card stat-card blue"><span>Inventário total</span><strong>${vms.length}</strong><small>VMs gerenciadas</small></article>
-        <article class="card stat-card amber"><span>Jobs em andamento</span><strong>${hasTransient ? "Sim" : "Não"}</strong><small>Atualiza sozinho quando ativo</small></article>
+        <article class="card stat-card amber"><span>Jobs em andamento</span><strong>${hasWork ? "Sim" : "Não"}</strong><small>Atualiza sozinho quando ativo</small></article>
         <article class="card stat-card slate"><span>Modo de acesso</span><strong>Privado</strong><small>Admin · tenant único</small></article>
       </section>
       <section class="section-header">
@@ -298,7 +301,7 @@ async function renderDashboard() {
   startHeroVideo();
   runHeroEffects();
   clearTimeout(dashboardRefresh);
-  if (hasTransient) dashboardRefresh = setTimeout(() => { if (window.location.pathname === "/") renderDashboard(); }, 5000);
+  if (hasWork) dashboardRefresh = setTimeout(() => { if (window.location.pathname === "/") renderDashboard(); }, 5000);
 }
 
 function runHeroEffects() {
@@ -352,8 +355,8 @@ function vmTable(vms) {
         <button class="ghost-button" data-action="reboot" data-id="${vm.id}" ${vm.actions.can_reboot ? "" : "disabled"}>Reiniciar</button>
         ${vm.actions.can_recheck ? `<button class="ghost-button" data-recheck="${vm.id}">Re-checar SSH</button>` : ""}
         <button class="primary-button" data-terminal="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_terminal ? "" : "disabled"}>Terminal</button>
-        <button class="danger-button" data-reinstall="${vm.id}" data-hostname="${esc(vm.hostname)}" data-template="${esc(vm.template)}" ${vm.actions.can_reinstall ? "" : "disabled"}>Reinstalar</button>
-        <button class="danger-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" ${vm.actions.can_delete ? "" : "disabled"}>Excluir</button>
+        <button class="danger-button" data-reinstall="${vm.id}" data-hostname="${esc(vm.hostname)}" data-template="${esc(vm.template)}" data-has-proxmox="${vm.has_proxmox_vm ? "1" : "0"}" ${vm.actions.can_reinstall ? "" : "disabled"}>${vm.has_proxmox_vm ? "Reinstalar" : "Tentar criar"}</button>
+        <button class="danger-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" data-has-proxmox="${vm.has_proxmox_vm ? "1" : "0"}" ${vm.actions.can_delete ? "" : "disabled"}>${vm.has_proxmox_vm ? "Excluir" : "Remover"}</button>
       </td>
     </tr>
   `).join("");
@@ -439,16 +442,19 @@ function confirmModal({ title, body, confirmText = "Confirmar", cancelText = "Ca
   });
 }
 
-function reinstallModal({ host, currentTemplate, templates }) {
+function reinstallModal({ host, currentTemplate, templates, mode = "reinstall" }) {
   return new Promise((resolve) => {
     const enabled = templates.filter((template) => template.enabled);
+    const retry = mode === "retry";
     const overlay = document.createElement("div");
     overlay.className = "modal-overlay";
     overlay.innerHTML = `
       <div class="modal" role="dialog" aria-modal="true">
-        <h3>Reinstalar VPS</h3>
+        <h3>${retry ? "Tentar criar novamente" : "Reinstalar VPS"}</h3>
         <div class="modal-body">
-          Isso apaga o disco atual de <strong>${esc(host)}</strong> e cria a VPS de novo a partir do template escolhido.
+          ${retry
+            ? `O registro <strong>${esc(host)}</strong> ainda não tem VMID no Proxmox. Vamos tentar provisionar a VM novamente com o template escolhido.`
+            : `Isso apaga o disco atual de <strong>${esc(host)}</strong> e cria a VPS de novo a partir do template escolhido.`}
         </div>
         <label><span class="modal-label">Template</span>
           <select class="modal-input" data-template>
@@ -463,7 +469,7 @@ function reinstallModal({ host, currentTemplate, templates }) {
         </label>
         <div class="modal-actions">
           <button class="ghost-button" type="button" data-cancel>Cancelar</button>
-          <button class="danger-button" type="button" data-confirm disabled>Reinstalar VPS</button>
+          <button class="danger-button" type="button" data-confirm disabled>${retry ? "Tentar criar" : "Reinstalar VPS"}</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -531,10 +537,13 @@ function bindDashboardActions() {
   document.querySelectorAll("[data-delete]").forEach((button) => {
     button.addEventListener("click", async () => {
       const host = button.dataset.hostname;
+      const hasProxmox = button.dataset.hasProxmox === "1";
       const ok = await confirmModal({
-        title: "Excluir VM",
-        body: `Isso apaga a VM <strong>${esc(host)}</strong> <strong>permanentemente</strong> no Proxmox (disco incluído). Digite o hostname para confirmar:`,
-        confirmText: "Excluir VM",
+        title: hasProxmox ? "Excluir VM" : "Remover registro",
+        body: hasProxmox
+          ? `Isso apaga a VM <strong>${esc(host)}</strong> <strong>permanentemente</strong> no Proxmox (disco incluído). Digite o hostname para confirmar:`
+          : `Isso remove o registro <strong>${esc(host)}</strong> do painel. Nenhum disco Proxmox será apagado porque a VM ainda não tem VMID. Digite o hostname para confirmar:`,
+        confirmText: hasProxmox ? "Excluir VM" : "Remover registro",
         danger: true,
         requireText: host,
       });
@@ -550,6 +559,7 @@ function bindDashboardActions() {
   document.querySelectorAll("[data-reinstall]").forEach((button) => {
     button.addEventListener("click", async () => {
       const host = button.dataset.hostname;
+      const hasProxmox = button.dataset.hasProxmox === "1";
       let templates = [];
       try {
         const res = await api("/api/templates");
@@ -559,12 +569,18 @@ function bindDashboardActions() {
         toast("Não foi possível carregar templates.", "error");
         return;
       }
-      const payload = await reinstallModal({ host, currentTemplate: button.dataset.template, templates });
+      const payload = await reinstallModal({ host, currentTemplate: button.dataset.template, templates, mode: hasProxmox ? "reinstall" : "retry" });
       if (!payload) return;
       await withLoading(button, async () => {
         const res = await api(`/api/vms/${button.dataset.reinstall}/reinstall`, { method: "POST", body: JSON.stringify(payload) });
-        if (!res.ok) { toast(await errMsg(res) || "Erro ao reinstalar VPS.", "error"); return; }
-        toast("VPS em reinstalação…");
+        if (!res.ok) { toast(await errMsg(res) || "Erro ao iniciar provisionamento.", "error"); return; }
+        const data = await res.json().catch(() => null);
+        toast(hasProxmox ? "VPS em reinstalação…" : "Provisionamento reenfileirado…");
+        if (data && data.job_id) {
+          history.pushState(null, "", `/vms/progress?vm=${encodeURIComponent(button.dataset.reinstall)}&job=${encodeURIComponent(data.job_id)}`);
+          router();
+          return;
+        }
         renderDashboard();
       });
     });
@@ -598,21 +614,32 @@ async function renderNewVm() {
   const [templatesResponse, optionsResponse] = await Promise.all([api("/api/templates"), api("/api/options")]);
   const { templates } = await templatesResponse.json();
   const options = await optionsResponse.json();
+  const defaultTemplate = templates.find((template) => template.enabled && template.os === "debian")
+    || templates.find((template) => template.enabled)
+    || templates[0];
   app.innerHTML = shell(`
     <section class="section-header">
       <div><span class="eyebrow">Provisionamento</span><h1>Criar VM</h1><p>Escolha template, recursos e disco para iniciar uma nova VPS interna.</p></div>
     </section>
+    <section class="card create-readiness-card" id="create-readiness">
+      <div>
+        <span class="eyebrow">Validação Proxmox</span>
+        <h2 id="create-readiness-title">Checando ambiente…</h2>
+        <p id="create-readiness-text">O painel valida API, token, storage e template antes de liberar a criação.</p>
+      </div>
+      <div class="diagnostic-output" id="create-readiness-detail" hidden></div>
+    </section>
     <div class="card form-card">
-      ${options.missing_runtime.length ? `<p class="error">Ambiente Proxmox ainda não configurado: ${options.missing_runtime.join(", ")}.</p>` : ""}
+      ${options.missing_runtime.length ? `<p class="error">Ambiente Proxmox ainda não configurado: ${options.missing_runtime.map(esc).join(", ")}.</p>` : ""}
       <form id="create-vm-form" class="form form-grid">
-        <label><span>Hostname</span><input name="hostname" pattern="[a-zA-Z0-9](-?[a-zA-Z0-9]){0,126}" title="letras, números e hífen (não pode começar/terminar com hífen)" required></label>
-        <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${template.os}" data-min-disk="${Number(template.min_disk_gb || 0)}" ${template.enabled ? "" : "disabled"}>${template.name}</option>`).join("")}</select></label>
-        <label><span>Tamanho</span><select name="size">${Object.entries(options.sizes).map(([key, size]) => `<option value="${key}">${size.label}</option>`).join("")}</select></label>
+        <label><span>Hostname</span><input name="hostname" pattern="[a-zA-Z0-9](-?[a-zA-Z0-9]){0,126}" title="letras, números e hífen (não pode começar/terminar com hífen)" autocomplete="off" autocapitalize="none" autocorrect="off" spellcheck="false" required></label>
+        <label><span>Template</span><select name="template">${templates.map((template) => `<option value="${esc(template.os)}" data-min-disk="${Number(template.min_disk_gb || 0)}" ${template.enabled ? "" : "disabled"}" ${defaultTemplate && template.os === defaultTemplate.os ? "selected" : ""}>${esc(template.name)}</option>`).join("")}</select></label>
+        <label><span>Tamanho</span><select name="size">${Object.entries(options.sizes).map(([key, size]) => `<option value="${esc(key)}">${esc(size.label)}</option>`).join("")}</select></label>
         <label><span>Disco</span><select name="disk_gb">${options.disk_choices.map((gb) => `<option value="${gb}">${gb} GB</option>`).join("")}</select></label>
         <label><span>Senha root</span><div class="password-field"><input id="root-password" name="root_password" type="password" minlength="8" required>${pwToggle()}</div></label>
         <div class="form-actions">
           <a class="ghost-button" href="/" data-route>Cancelar</a>
-          <button class="primary-button" type="submit" ${options.missing_runtime.length ? "disabled" : ""}>Criar VM</button>
+          <button class="primary-button" type="submit" data-create-submit disabled>Criar VM</button>
         </div>
       </form>
       <p id="form-message"></p>
@@ -622,6 +649,17 @@ async function renderNewVm() {
   const createForm = document.getElementById("create-vm-form");
   const templateSelect = createForm.elements.template;
   const diskSelect = createForm.elements.disk_gb;
+  const hostInput = createForm.elements.hostname;
+  const submitButton = createForm.querySelector("[data-create-submit]");
+  const readinessTitle = document.getElementById("create-readiness-title");
+  const readinessText = document.getElementById("create-readiness-text");
+  const readinessDetail = document.getElementById("create-readiness-detail");
+  let preflightOk = false;
+  let preflightSeq = 0;
+
+  const setSubmitState = () => {
+    submitButton.disabled = Boolean(options.missing_runtime.length) || !preflightOk || createForm.dataset.submitting === "1";
+  };
   const syncDiskChoices = () => {
     const selected = templateSelect.selectedOptions[0];
     const minDisk = Number(selected?.dataset?.minDisk || 0);
@@ -633,24 +671,242 @@ async function renderNewVm() {
       if (next) diskSelect.value = next.value;
     }
   };
-  templateSelect.addEventListener("change", syncDiskChoices);
+  const runPreflight = async () => {
+    const seq = ++preflightSeq;
+    preflightOk = false;
+    setSubmitState();
+    readinessDetail.hidden = true;
+    readinessDetail.innerHTML = "";
+    if (options.missing_runtime.length) {
+      readinessTitle.textContent = "Configuração incompleta";
+      readinessText.textContent = `Preencha: ${options.missing_runtime.join(", ")}.`;
+      return;
+    }
+    const selected = templateSelect.selectedOptions[0];
+    if (!selected || selected.disabled) {
+      readinessTitle.textContent = "Template indisponível";
+      readinessText.textContent = "Escolha um template habilitado antes de criar a VM.";
+      return;
+    }
+    readinessTitle.textContent = "Validando Proxmox…";
+    readinessText.textContent = "Conferindo API, token, storage e o template selecionado.";
+    try {
+      const res = await api(`/api/system/proxmox?template=${encodeURIComponent(templateSelect.value)}`);
+      const data = await res.json().catch(() => null);
+      if (seq !== preflightSeq) return;
+      readinessDetail.hidden = false;
+      readinessDetail.innerHTML = data ? renderProxmoxDiagnostic(data) : `<p class="error">Diagnóstico indisponível.</p>`;
+      preflightOk = Boolean(res.ok && data && data.ok);
+      readinessTitle.textContent = preflightOk ? "Pronto para criar" : "Proxmox precisa de correção";
+      readinessText.textContent = preflightOk
+        ? "API, token, storage e template selecionado responderam corretamente."
+        : "Corrija o item com erro antes de criar outra VM.";
+    } catch (_) {
+      if (seq !== preflightSeq) return;
+      readinessTitle.textContent = "Falha ao validar Proxmox";
+      readinessText.textContent = "Não foi possível executar o diagnóstico agora.";
+      readinessDetail.hidden = false;
+      readinessDetail.innerHTML = `<p class="error">Validação indisponível.</p>`;
+    } finally {
+      if (seq === preflightSeq) setSubmitState();
+    }
+  };
+  templateSelect.addEventListener("change", () => {
+    syncDiskChoices();
+    runPreflight();
+  });
+  hostInput.addEventListener("blur", () => {
+    hostInput.value = hostInput.value.trim().toLowerCase();
+  });
   syncDiskChoices();
+  runPreflight();
   createForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
-    data.disk_gb = Number(data.disk_gb);
-    const message = document.getElementById("form-message");
-    message.textContent = "Criando job...";
-    const response = await api("/api/vms", { method: "POST", body: JSON.stringify(data) });
-    if (!response.ok) {
-      const error = await response.json().catch(() => null);
-      message.textContent = error?.error?.message || "Erro ao criar VM.";
+    if (createForm.dataset.submitting === "1") return;
+    if (!preflightOk) {
+      const message = document.getElementById("form-message");
+      message.textContent = "Valide o Proxmox antes de criar a VM.";
       message.className = "error";
       return;
     }
-    history.pushState(null, "", "/");
-    router();
+    const data = Object.fromEntries(new FormData(event.currentTarget).entries());
+    data.hostname = String(data.hostname || "").trim().toLowerCase();
+    data.disk_gb = Number(data.disk_gb);
+    const message = document.getElementById("form-message");
+    message.className = "";
+    message.textContent = "Criando job...";
+    createForm.dataset.submitting = "1";
+    submitButton.textContent = "Criando…";
+    setSubmitState();
+    try {
+      const response = await api("/api/vms", { method: "POST", body: JSON.stringify(data) });
+      if (!response.ok) {
+        const error = await response.json().catch(() => null);
+        message.textContent = error?.error?.message || "Erro ao criar VM.";
+        message.className = "error";
+        createForm.dataset.submitting = "0";
+        submitButton.textContent = "Criar VM";
+        setSubmitState();
+        runPreflight();
+        return;
+      }
+      const created = await response.json();
+      history.pushState(null, "", `/vms/progress?vm=${encodeURIComponent(created.vm_id)}&job=${encodeURIComponent(created.job_id)}`);
+      router();
+    } catch (_) {
+      message.textContent = "Erro ao criar VM.";
+      message.className = "error";
+      createForm.dataset.submitting = "0";
+      submitButton.textContent = "Criar VM";
+      setSubmitState();
+    }
   });
+}
+
+const OPERATION_LABELS = {
+  queued: "Job criado e aguardando worker",
+  "resolve-template": "Localizando template no cluster",
+  "allocate-vmid": "Reservando VMID",
+  clone: "Clonando template",
+  "config-cloudinit": "Configurando cloud-init",
+  "resize-check": "Conferindo disco",
+  resize: "Ajustando disco",
+  "resize-skip": "Disco já compatível",
+  start: "Ligando VM",
+  "wait-ip": "Aguardando IP pelo guest-agent",
+  "reset-machine-id": "Gerando identidade única da VM",
+  "reboot-uniq": "Reiniciando para lease DHCP único",
+  "wait-ip-after-reboot": "Confirmando IP após reboot",
+  ready: "VM criada; aguardando SSH",
+};
+
+const PROGRESS_STEPS = [
+  { key: "queued", label: "Job criado" },
+  { key: "resolve-template", label: "Validar template" },
+  { key: "clone", label: "Clonar VM" },
+  { key: "config-cloudinit", label: "Cloud-init" },
+  { key: "resize-check", label: "Disco" },
+  { key: "start", label: "Ligar" },
+  { key: "wait-ip", label: "IP" },
+  { key: "reset-machine-id", label: "Identidade única" },
+  { key: "ready", label: "SSH" },
+];
+
+function operationKey(operation) {
+  const op = String(operation || "queued");
+  if (op === "queued") return "queued";
+  return op.includes(":") ? op.split(":").slice(1).join(":") : op;
+}
+
+function operationLabel(job, vm) {
+  if (job.status === "failed") return job.error || "Job falhou";
+  if (vm.status === "error") return vm.last_error || "VM em erro";
+  if (vm.status === "running" && vm.ssh_status === "ready") return "VM pronta para terminal";
+  if (vm.status === "running" && vm.ssh_status === "failed") return "VM ligada, mas SSH ainda falhou";
+  if (vm.status === "running" && vm.ssh_status === "pending") return "VM ligada; aguardando SSH";
+  return OPERATION_LABELS[operationKey(job.meta && job.meta.operation)] || "Provisionamento em andamento";
+}
+
+function renderProgressSteps(job, vm) {
+  const currentKey = operationKey(job.meta && job.meta.operation);
+  let currentIndex = Math.max(0, PROGRESS_STEPS.findIndex((step) => step.key === currentKey));
+  if (currentKey === "allocate-vmid") currentIndex = 1;
+  if (currentKey === "resize" || currentKey === "resize-skip") currentIndex = 4;
+  if (currentKey === "reboot-uniq" || currentKey === "wait-ip-after-reboot") currentIndex = 7;
+  if (vm.status === "running" && vm.ssh_status === "ready") currentIndex = PROGRESS_STEPS.length - 1;
+  const failed = job.status === "failed" || vm.status === "error" || vm.ssh_status === "failed";
+  return `<ol class="progress-steps">
+    ${PROGRESS_STEPS.map((step, index) => {
+      const cls = index < currentIndex || (!failed && index === PROGRESS_STEPS.length - 1 && vm.ssh_status === "ready")
+        ? "done"
+        : (index === currentIndex ? (failed ? "failed" : "current") : "");
+      return `<li class="progress-step ${cls}"><span>${index + 1}</span><strong>${esc(step.label)}</strong></li>`;
+    }).join("")}
+  </ol>`;
+}
+
+function progressDetails(job, vm) {
+  const meta = job.meta || {};
+  const rows = [
+    ["Hostname", vm.hostname],
+    ["Status", `${statusLabel(vm.status)} / SSH ${vm.ssh_status}`],
+    ["Template", vm.template],
+    ["IP", vm.ip_address || "aguardando"],
+    ["Node", meta.node || "aguardando"],
+    ["VMID", meta.target_vmid || (vm.has_proxmox_vm ? "associado" : "aguardando")],
+    ["Operação", meta.operation || "queued"],
+  ];
+  return `<dl class="progress-details">${rows.map(([key, value]) => `<div><dt>${esc(key)}</dt><dd>${esc(value)}</dd></div>`).join("")}</dl>`;
+}
+
+async function renderVmProgress() {
+  const params = new URLSearchParams(window.location.search);
+  const vmId = params.get("vm");
+  const jobId = params.get("job");
+  if (!vmId || !jobId) {
+    history.pushState(null, "", "/");
+    return renderDashboard();
+  }
+  const [jobResponse, vmResponse] = await Promise.all([
+    api(`/api/jobs/${encodeURIComponent(jobId)}`),
+    api(`/api/vms/${encodeURIComponent(vmId)}`),
+  ]);
+  if (!jobResponse.ok || !vmResponse.ok) {
+    app.innerHTML = shell(`
+      <section class="section-header">
+        <div><span class="eyebrow">Provisionamento</span><h1>Acompanhamento indisponível</h1><p>Não foi possível carregar a VM ou o job.</p></div>
+        <a class="ghost-button" href="/" data-route>Voltar ao painel</a>
+      </section>
+    `);
+    bindShellEvents();
+    return;
+  }
+  const job = await jobResponse.json();
+  const vm = await vmResponse.json();
+  const failed = job.status === "failed" || vm.status === "error";
+  const sshFailed = vm.status === "running" && vm.ssh_status === "failed";
+  const ready = vm.status === "running" && vm.ssh_status === "ready";
+  const keepPolling = !failed && !sshFailed && !ready;
+  const errorText = failed ? (job.error || vm.last_error || "Provisionamento falhou.") : "";
+  const badgeText = ready
+    ? "pronta"
+    : (failed ? "erro" : (job.status === "success" && vm.ssh_status === "pending" ? "ssh pendente" : job.status));
+  const retryActions = failed && !vm.has_proxmox_vm ? `
+    <button class="danger-button" data-reinstall="${esc(vm.id)}" data-hostname="${esc(vm.hostname)}" data-template="${esc(vm.template)}" data-has-proxmox="0">Tentar criar novamente</button>
+    <button class="ghost-button" data-delete="${esc(vm.id)}" data-hostname="${esc(vm.hostname)}" data-has-proxmox="0">Remover registro</button>
+  ` : "";
+  app.innerHTML = shell(`
+    <section class="section-header">
+      <div><span class="eyebrow">Provisionamento</span><h1>${esc(vm.hostname)}</h1><p>${esc(operationLabel(job, vm))}</p></div>
+      <a class="ghost-button" href="/" data-route>Voltar ao painel</a>
+    </section>
+    <section class="card progress-card">
+      <div class="progress-card-head">
+        <div>
+          <span class="badge ${failed || sshFailed ? "badge-error" : (ready ? "badge-running" : "badge-pending")}">${esc(badgeText)}</span>
+          <h2>${esc(operationLabel(job, vm))}</h2>
+        </div>
+        ${keepPolling ? `<span class="pill warn">Atualizando automaticamente</span>` : ""}
+      </div>
+      ${errorText ? `<p class="error">${esc(errorText)}</p>` : ""}
+      ${sshFailed ? `<p class="error">A VM ligou, mas o terminal SSH ainda não ficou pronto. Confira IP, cloud-init e chave SSH do console.</p>` : ""}
+      ${renderProgressSteps(job, vm)}
+      ${progressDetails(job, vm)}
+      <div class="progress-actions">
+        ${vm.actions && vm.actions.can_terminal ? `<button class="primary-button" data-terminal="${esc(vm.id)}" data-hostname="${esc(vm.hostname)}">Abrir terminal</button>` : ""}
+        ${retryActions}
+        <a class="ghost-button" href="/vms/new" data-route>Criar outra VM</a>
+      </div>
+    </section>
+  `);
+  bindShellEvents();
+  bindDashboardActions();
+  clearTimeout(createMonitorRefresh);
+  if (keepPolling) {
+    createMonitorRefresh = setTimeout(() => {
+      if (window.location.pathname === "/vms/progress") renderVmProgress();
+    }, 3000);
+  }
 }
 
 const AUDIT_LABELS = {
@@ -987,6 +1243,7 @@ function startLandingVideo() {
 
 async function router() {
   clearTimeout(dashboardRefresh);
+  clearTimeout(createMonitorRefresh);
   let authed = false;
   try {
     const res = await fetch("/api/auth/me", { credentials: "include", headers: { "Content-Type": "application/json" } });
@@ -1000,6 +1257,7 @@ async function router() {
     return renderLanding();
   }
   if (window.location.pathname === "/vms/new") return renderNewVm();
+  if (window.location.pathname === "/vms/progress") return renderVmProgress();
   if (window.location.pathname === "/trocar-senha") return renderChangePassword();
   if (window.location.pathname === "/atividade") return renderAudit();
   if (window.location.pathname === "/terminal") return renderTerminal();

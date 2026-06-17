@@ -174,7 +174,7 @@ class ProxmoxClient:
             except ProxmoxError:
                 pass
             if loop.time() >= deadline:
-                raise ProxmoxTimeoutError("guest-agent não retornou IP em 180s")
+                raise ProxmoxTimeoutError(f"guest-agent não retornou IP em {timeout:.0f}s")
             await asyncio.sleep(interval)
 
     async def agent_exec(self, node: str, vmid: int, script: str, timeout: float = 60.0) -> str:
@@ -270,6 +270,10 @@ def parse_disk_size_gb(value: str) -> int | None:
 def sanitize_proxmox_error(exc: Exception | None) -> str:
     if exc is None:
         return "erro ao chamar Proxmox"
+    if isinstance(exc, httpx.ConnectError):
+        return "não foi possível conectar ao Proxmox; verifique PROXMOX_HOST, rede e firewall"
+    if isinstance(exc, httpx.TimeoutException):
+        return "Proxmox não respondeu dentro do tempo limite; verifique API, rede e carga do node"
     if isinstance(exc, httpx.HTTPStatusError):
         detail = ""
         try:

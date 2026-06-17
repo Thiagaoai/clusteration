@@ -1,7 +1,7 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class VMCreate(BaseModel):
@@ -10,6 +10,11 @@ class VMCreate(BaseModel):
     size: str = "small"
     disk_gb: int = 12
     root_password: str = Field(min_length=8, max_length=256)
+
+    @field_validator("hostname", "template", "size", mode="before")
+    @classmethod
+    def normalize_identifiers(cls, value: str) -> str:
+        return str(value or "").strip().lower()
 
 
 class DeleteVM(BaseModel):
@@ -49,6 +54,7 @@ class VMOut(BaseModel):
     ip_address: str | None
     created_at: datetime | None
     actions: VMActions
+    has_proxmox_vm: bool
     last_error: str | None = None
     last_error_at: datetime | None = None
     last_error_job_type: str | None = None

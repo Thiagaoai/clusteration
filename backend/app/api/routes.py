@@ -1,7 +1,8 @@
+import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,6 +31,7 @@ from app.services.proxmox import ProxmoxAuthError, ProxmoxClient, ProxmoxError
 from app.workers.inprocess import enqueue
 
 router = APIRouter(prefix="/api", dependencies=[Depends(require_admin)])
+_CREATE_VM_LOCK = asyncio.Lock()
 
 
 @router.post("/vms", status_code=201)
@@ -51,37 +53,61 @@ async def create_vm(payload: VMCreate, request: Request, db: AsyncSession = Depe
         raise AppHTTPException("TEMPLATE_NOT_FOUND", "template não encontrado", 404)
     if template.defaults and template.defaults.get("enabled") is False:
         raise AppHTTPException("TEMPLATE_DISABLED", "template desabilitado", 400)
+    existing = await db.scalar(
+        select(VM).where(func.lower(VM.hostname) == payload.hostname, VM.deleted_at.is_(None))
+    )
+    if existing is not None:
+        raise AppHTTPException("HOSTNAME_TAKEN", "já existe uma VM ativa com esse hostname", 409)
 
-    min_disk_gb = int((template.defaults or {}).get("min_disk_gb") or 0)
-    effective_disk_gb = max(payload.disk_gb, min_disk_gb)
-    size = VM_SIZES[payload.size]
-    vm = VM(
-        hostname=payload.hostname,
-        template=payload.template,
-        cpu=size["cpu"],
-        memory_mb=size["memory_mb"],
-        disk_gb=effective_disk_gb,
-        node=(template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE,
-        status=VMStatus.creating.value,
-        ssh_status=SSHStatus.pending.value,
-    )
-    db.add(vm)
-    await db.flush()
-    job = Job(type=JobType.create_vm.value, status=JobStatus.queued.value, vm_id=vm.id, meta={})
-    db.add(job)
-    await _audit_vm(
-        db,
-        request,
-        "vm.create",
-        vm,
-        template=payload.template,
-        size=payload.size,
-        disk_gb=effective_disk_gb,
-        requested_disk_gb=payload.disk_gb,
-    )
-    await db.commit()
-    await db.refresh(vm)
-    await db.refresh(job)
+    preflight = await validate_create_preflight(settings, template)
+
+    async with _CREATE_VM_LOCK:
+        existing = await db.scalar(
+            select(VM).where(func.lower(VM.hostname) == payload.hostname, VM.deleted_at.is_(None))
+        )
+        if existing is not None:
+            raise AppHTTPException("HOSTNAME_TAKEN", "já existe uma VM ativa com esse hostname", 409)
+
+        min_disk_gb = int((template.defaults or {}).get("min_disk_gb") or 0)
+        effective_disk_gb = max(payload.disk_gb, min_disk_gb)
+        size = VM_SIZES[payload.size]
+        vm = VM(
+            hostname=payload.hostname,
+            template=payload.template,
+            cpu=size["cpu"],
+            memory_mb=size["memory_mb"],
+            disk_gb=effective_disk_gb,
+            node=preflight["node"],
+            status=VMStatus.creating.value,
+            ssh_status=SSHStatus.pending.value,
+        )
+        db.add(vm)
+        await db.flush()
+        job = Job(
+            type=JobType.create_vm.value,
+            status=JobStatus.queued.value,
+            vm_id=vm.id,
+            meta={
+                "operation": "queued",
+                "node": preflight["node"],
+                "template": payload.template,
+                "template_disk_gb": preflight.get("template_disk_gb"),
+            },
+        )
+        db.add(job)
+        await _audit_vm(
+            db,
+            request,
+            "vm.create",
+            vm,
+            template=payload.template,
+            size=payload.size,
+            disk_gb=effective_disk_gb,
+            requested_disk_gb=payload.disk_gb,
+        )
+        await db.commit()
+        await db.refresh(vm)
+        await db.refresh(job)
     await enqueue(
         {
             "type": JobType.create_vm.value,
@@ -160,7 +186,10 @@ async def system_status(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/system/proxmox")
-async def proxmox_diagnostics(db: AsyncSession = Depends(get_db)):
+async def proxmox_diagnostics(
+    db: AsyncSession = Depends(get_db),
+    template_os: str | None = Query(default=None, alias="template"),
+):
     settings = get_settings()
     checks: list[dict] = []
     missing = missing_runtime_settings(settings)
@@ -177,7 +206,6 @@ async def proxmox_diagnostics(db: AsyncSession = Depends(get_db)):
             "setup_hint": proxmox_setup_hint(),
         }
 
-    templates = (await db.scalars(select(Template).order_by(Template.os))).all()
     checks.append(
         {
             "name": "runtime",
@@ -185,6 +213,24 @@ async def proxmox_diagnostics(db: AsyncSession = Depends(get_db)):
             "message": "variáveis obrigatórias presentes",
         }
     )
+    if template_os:
+        template_os = template_os.strip().lower()
+        selected = await db.scalar(select(Template).where(Template.os == template_os))
+        if selected is None:
+            checks.append(
+                {
+                    "name": "template",
+                    "ok": False,
+                    "message": f"template {template_os} não encontrado",
+                }
+            )
+            return {"ok": False, "checks": checks, "setup_hint": proxmox_setup_hint()}
+        templates = [selected]
+    else:
+        templates = (await db.scalars(select(Template).order_by(Template.os))).all()
+    if not templates:
+        checks.append({"name": "templates", "ok": False, "message": "nenhum template configurado"})
+        return {"ok": False, "checks": checks, "setup_hint": proxmox_setup_hint()}
 
     try:
         async with ProxmoxClient(settings) as proxmox:
@@ -292,6 +338,21 @@ def proxmox_setup_hint() -> str:
     )
 
 
+async def validate_create_preflight(settings, template: Template) -> dict:
+    preferred_node = (template.defaults or {}).get("node") or settings.PROXMOX_DEFAULT_NODE
+    try:
+        async with ProxmoxClient(settings) as proxmox:
+            await proxmox.next_id()
+            node = await proxmox.resolve_template_node(preferred_node, template.proxmox_template_vmid)
+            disk_gb = await proxmox.vm_disk_size_gb(node, template.proxmox_template_vmid)
+            await proxmox.get(f"/nodes/{node}/storage/{settings.PROXMOX_DEFAULT_STORAGE}/status")
+            return {"node": node, "template_disk_gb": disk_gb}
+    except ProxmoxAuthError as exc:
+        raise AppHTTPException("PROXMOX_AUTH_FAILED", str(exc), 403) from exc
+    except ProxmoxError as exc:
+        raise AppHTTPException("PROXMOX_UNAVAILABLE", str(exc), 502) from exc
+
+
 @router.get("/vms/{vm_id}")
 async def get_vm(vm_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> VMOut:
     return serialize_vm(await get_live_vm(db, vm_id))
@@ -302,6 +363,12 @@ async def start_vm(vm_id: uuid.UUID, request: Request, db: AsyncSession = Depend
     vm = await get_live_vm(db, vm_id)
     if vm.status not in (VMStatus.stopped.value, VMStatus.error.value):
         raise AppHTTPException("INVALID_STATE", "VM não pode ser iniciada neste estado", 409)
+    if vm.proxmox_vmid is None:
+        raise AppHTTPException(
+            "INVALID_STATE",
+            "VM ainda não existe no Proxmox; tente criar novamente ou remova o registro",
+            409,
+        )
     await _audit_vm(db, request, "vm.start", vm)
     return await enqueue_power_job(db, vm, JobType.start_vm)
 
@@ -351,12 +418,18 @@ async def reinstall_vm(
         raise AppHTTPException("TEMPLATE_NOT_FOUND", "template não encontrado", 404)
     if template.defaults and template.defaults.get("enabled") is False:
         raise AppHTTPException("TEMPLATE_DISABLED", "template desabilitado", 400)
+    preflight = await validate_create_preflight(settings, template)
 
     job = Job(
         type=JobType.reinstall_vm.value,
         status=JobStatus.queued.value,
         vm_id=vm.id,
-        meta={"template": template_os},
+        meta={
+            "operation": "queued",
+            "template": template_os,
+            "node": preflight["node"],
+            "template_disk_gb": preflight.get("template_disk_gb"),
+        },
     )
     db.add(job)
     await _audit_vm(
@@ -496,11 +569,12 @@ async def enqueue_power_job(db: AsyncSession, vm: VM, job_type: JobType):
 def serialize_vm(vm: VM, last_error: Job | str | None = None) -> VMOut:
     running = vm.status == VMStatus.running.value
     ssh_ready = vm.ssh_status == SSHStatus.ready.value
+    has_proxmox_vm = vm.proxmox_vmid is not None
     error_text = last_error.error if isinstance(last_error, Job) else last_error
     error_at = last_error.created_at if isinstance(last_error, Job) else None
     error_type = last_error.type if isinstance(last_error, Job) else None
     actions = {
-        "can_start": vm.status in (VMStatus.stopped.value, VMStatus.error.value),
+        "can_start": has_proxmox_vm and vm.status in (VMStatus.stopped.value, VMStatus.error.value),
         "can_stop": running,
         "can_reboot": running,
         "can_terminal": running and ssh_ready,
@@ -520,6 +594,7 @@ def serialize_vm(vm: VM, last_error: Job | str | None = None) -> VMOut:
         ip_address=vm.ip_address,
         created_at=vm.created_at,
         actions=actions,
+        has_proxmox_vm=has_proxmox_vm,
         last_error=error_text if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
         last_error_at=error_at if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
         last_error_job_type=error_type if vm.status == VMStatus.error.value or (running and not ssh_ready) else None,
