@@ -1,4 +1,5 @@
 const app = document.getElementById("app");
+const BUILD_ID = "2026-06-20-proxmox-config-denied-v2";
 let dashboardRefresh = null;
 let createMonitorRefresh = null;
 
@@ -238,7 +239,9 @@ async function renderDashboard() {
   const dbWarning = systemStatus && systemStatus.database && !systemStatus.database.durable
     ? `<p class="error">Banco em storage não durável: ${esc(systemStatus.database.message)}. Configure DATABASE_URL em /data ou Postgres antes do próximo redeploy.</p>`
     : "";
-  const buildText = systemStatus && systemStatus.build ? `Build ${esc(systemStatus.build)}` : "Build não informado";
+  const buildText = systemStatus && systemStatus.build
+    ? `Backend ${esc(systemStatus.build)} · UI ${BUILD_ID}`
+    : `Backend não informado · UI ${BUILD_ID}`;
   const hasTransient = vms.some((vm) =>
     ["creating", "provisioning", "starting", "stopping", "rebooting", "deleting"].includes(vm.status),
   );
@@ -341,9 +344,21 @@ function statusLabel(s) { return STATUS_LABEL[s] || s; }
 function sshBadge(s) { return s === "ready" ? "badge-running" : (s === "failed" ? "badge-failed" : "badge-pending"); }
 
 function vmTable(vms) {
-  const rows = vms.map((vm) => `
+  const rows = vms.map((vm) => {
+    const canRetryCreate = vm.status === "error" && !vm.has_proxmox_vm && vm.actions.can_reinstall;
+    const recovery = canRetryCreate ? `
+      <div class="vm-recovery">
+        <strong>Provisionamento anterior falhou antes de criar VMID.</strong>
+        <span>Use Tentar criar para reenfileirar com o backend atual, ou Remover para limpar o registro.</span>
+        <div>
+          <button class="danger-button" data-reinstall="${vm.id}" data-hostname="${esc(vm.hostname)}" data-template="${esc(vm.template)}" data-has-proxmox="0">Tentar criar</button>
+          <button class="ghost-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" data-has-proxmox="0">Remover</button>
+        </div>
+      </div>
+    ` : "";
+    return `
     <tr>
-      <td data-label="Hostname"><strong>${esc(vm.hostname)}</strong>${vm.last_error ? `<div class="vm-error" title="${esc(vmErrorText(vm))}">⚠ ${esc(vmErrorText(vm))}</div>` : ""}</td>
+      <td data-label="Hostname"><strong>${esc(vm.hostname)}</strong>${vm.last_error ? `<div class="vm-error" title="${esc(vmErrorText(vm))}">⚠ ${esc(vmErrorText(vm))}</div>` : ""}${recovery}</td>
       <td data-label="Status"><span class="badge badge-${vm.status}">${statusLabel(vm.status)}</span></td>
       <td data-label="SSH"><span class="badge ${sshBadge(vm.ssh_status)}">${esc(vm.ssh_status)}</span></td>
       <td data-label="IP">${esc(vm.ip_address) || "—"}</td>
@@ -359,7 +374,8 @@ function vmTable(vms) {
         <button class="danger-button" data-delete="${vm.id}" data-hostname="${esc(vm.hostname)}" data-has-proxmox="${vm.has_proxmox_vm ? "1" : "0"}" ${vm.actions.can_delete ? "" : "disabled"}>${vm.has_proxmox_vm ? "Excluir" : "Remover"}</button>
       </td>
     </tr>
-  `).join("");
+  `;
+  }).join("");
   return `
     <section class="card">
       <div class="card-title"><h2>Inventário de VMs</h2><span class="pill">${vms.length} recursos</span></div>

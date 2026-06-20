@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-SOURCE_BUILD_ID = "2026-06-17-vm-create-flow-v1"
+SOURCE_BUILD_ID = "2026-06-20-proxmox-config-denied-v2"
 UNSET_BUILD_IDS = {"", "dev", "unknown"}
 
 

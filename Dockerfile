@@ -1,6 +1,6 @@
 FROM python:3.11-slim AS runtime
 
-ARG APP_BUILD_ID=2026-06-17-vm-create-flow-v1
+ARG APP_BUILD_ID=2026-06-20-proxmox-config-denied-v2
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \

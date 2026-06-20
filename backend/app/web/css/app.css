@@ -435,6 +435,11 @@ body { background: var(--bg); color: var(--ink); }
 .primary-button.is-loading::after, .danger-button.is-loading::after, .pill-solid.is-loading::after, .lpill-solid.is-loading::after { border-color: rgba(255,255,255,.45); border-top-color: #fff; }
 @keyframes btn-spin { to { transform: rotate(360deg); } }
 .vm-error { margin-top: 5px; max-width: 340px; color: #b91c1c; font-size: 11.5px; font-weight: 600; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.vm-recovery { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid rgba(245, 158, 11, .32); border-radius: 8px; background: rgba(245, 158, 11, .08); color: var(--ink); }
+.vm-recovery strong { font-size: 12px; line-height: 1.25; }
+.vm-recovery span { color: var(--muted); font-size: 11.5px; line-height: 1.35; }
+.vm-recovery div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.vm-recovery button { width: 100%; min-height: 38px; padding: 8px 10px; font-size: 12px; }
 .ops-diagnostic-card { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 14px; margin-bottom: 18px; }
 .ops-diagnostic-card h2 { margin: 2px 0 4px; font-size: 20px; }
 .ops-diagnostic-card p { margin: 0; color: var(--muted); }
@@ -514,6 +519,7 @@ body { background: var(--bg); color: var(--ink); }
 [data-theme="dark"] .error { color: #fca5a5; background: rgba(185,28,28,.14); border-color: rgba(252,165,165,.24); }
 [data-theme="dark"] .success { color: #bbf7d0; background: rgba(34,197,94,.14); border-color: rgba(187,247,208,.24); }
 [data-theme="dark"] .vm-error { color: #fca5a5; }
+[data-theme="dark"] .vm-recovery { background: rgba(245,158,11,.10); border-color: rgba(245,158,11,.38); }
 /* forms / login */
 [data-theme="dark"] .form-grid input, [data-theme="dark"] .form-grid select, [data-theme="dark"] .login-card input { background: var(--panel-soft); color: var(--ink); border-color: var(--line); }
 [data-theme="dark"] .password-toggle { background: rgba(94,210,156,.12); color: var(--ink); border-color: var(--line); }
@@ -609,6 +615,7 @@ body, .app-body { overflow-x: hidden; }
 }
 @media (max-width: 380px) {
   .actions { grid-template-columns: 1fr; }
+  .vm-recovery div { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .term-btn { padding: 7px 11px; font-size: 11px; }
