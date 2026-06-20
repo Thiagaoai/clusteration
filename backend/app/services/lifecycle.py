@@ -418,10 +418,28 @@ async def ensure_disk_size(
                 },
             )
         return
-    await proxmox.put(
-        f"/nodes/{vm.node}/qemu/{vmid}/resize",
-        data={"disk": "scsi0", "size": f"{requested_gb}G"},
-    )
+    try:
+        await proxmox.put(
+            f"/nodes/{vm.node}/qemu/{vmid}/resize",
+            data={"disk": "scsi0", "size": f"{requested_gb}G"},
+        )
+    except ProxmoxError as exc:
+        if current_gb is None:
+            await set_job_meta(
+                db,
+                job,
+                {
+                    "operation": f"{phase}:resize-skip",
+                    "disk_requested_gb": requested_gb,
+                    "warning": (
+                        "não foi possível confirmar/redimensionar o disco pelo token; "
+                        f"VM continuará com o disco do template: {exc}"
+                    ),
+                    "polled_at": iso_now(),
+                },
+            )
+            return
+        raise
     await set_job_meta(
         db,
         job,

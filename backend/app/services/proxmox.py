@@ -102,7 +102,20 @@ class ProxmoxClient:
         The cluster uses node-local storage, so cloning from a synthetic/default node
         (for example "pve" instead of "pve1") fails even when the token is valid.
         """
-        preferred_error = ""
+        cluster_error = ""
+        try:
+            resource = await self.find_vm_resource(template_vmid)
+        except ProxmoxError as exc:
+            resource = None
+            cluster_error = str(exc)
+        if resource is not None:
+            if not is_template_resource(resource):
+                raise ProxmoxError(f"VMID {template_vmid} encontrado, mas não está marcado como template")
+            node = str(resource.get("node") or "").strip()
+            if not node:
+                raise ProxmoxError(f"template VMID {template_vmid} encontrado sem node no Proxmox")
+            return node
+
         if preferred_node:
             try:
                 config = await self.vm_config(preferred_node, template_vmid)
@@ -112,24 +125,13 @@ class ProxmoxClient:
                     f"VMID {template_vmid} existe em {preferred_node}, mas não está marcado como template"
                 )
             except ProxmoxError as exc:
-                # A failure on the configured node is not fatal on its own: the cluster
-                # has no shared storage, so the template can live on another node and
-                # the per-node config path may even 403 when the VMID is owned
-                # elsewhere. Fall back to the cluster-wide lookup before giving up — a
-                # genuinely broken token also fails /cluster/resources below and
-                # surfaces there with the same auth error.
-                preferred_error = str(exc)
-
-        resource = await self.find_vm_resource(template_vmid)
-        if resource is None:
-            suffix = f" node configurado respondeu: {preferred_error}" if preferred_error else ""
-            raise ProxmoxError(f"template VMID {template_vmid} não encontrado no cluster.{suffix}")
-        if not is_template_resource(resource):
-            raise ProxmoxError(f"VMID {template_vmid} encontrado, mas não está marcado como template")
-        node = str(resource.get("node") or "").strip()
-        if not node:
-            raise ProxmoxError(f"template VMID {template_vmid} encontrado sem node no Proxmox")
-        return node
+                cluster_suffix = f" lookup do cluster respondeu: {cluster_error};" if cluster_error else ""
+                raise ProxmoxError(
+                    f"template VMID {template_vmid} não encontrado no cluster;"
+                    f"{cluster_suffix} node configurado respondeu: {exc}"
+                ) from exc
+        suffix = f": {cluster_error}" if cluster_error else ""
+        raise ProxmoxError(f"template VMID {template_vmid} não encontrado no cluster{suffix}")
 
     async def resolve_vm_node(self, preferred_node: str, vmid: int) -> str:
         if preferred_node:
@@ -150,7 +152,17 @@ class ProxmoxClient:
         return node
 
     async def vm_disk_size_gb(self, node: str, vmid: int, disk: str = "scsi0") -> int | None:
-        config = await self.vm_config(node, vmid)
+        try:
+            resource = await self.find_vm_resource(vmid)
+            disk_gb = disk_size_gb_from_resource(resource)
+            if disk_gb is not None:
+                return disk_gb
+        except ProxmoxError:
+            pass
+        try:
+            config = await self.vm_config(node, vmid)
+        except ProxmoxError:
+            return None
         return parse_disk_size_gb(str(config.get(disk) or ""))
 
     async def wait_for_task(self, node: str, upid: str, timeout: float = 600.0, interval: float = 3.0) -> str:
@@ -270,6 +282,19 @@ def parse_disk_size_gb(value: str) -> int | None:
     unit = match.group(2).upper()
     factor = {"K": 1 / (1024 * 1024), "M": 1 / 1024, "G": 1, "T": 1024}[unit]
     return max(1, math.ceil(amount * factor))
+
+
+def disk_size_gb_from_resource(resource: dict[str, Any] | None) -> int | None:
+    if not isinstance(resource, dict):
+        return None
+    raw = resource.get("maxdisk")
+    try:
+        bytes_size = int(raw)
+    except (TypeError, ValueError):
+        return None
+    if bytes_size <= 0:
+        return None
+    return max(1, math.ceil(bytes_size / (1024**3)))
 
 
 def sanitize_proxmox_error(exc: Exception | None) -> str:
