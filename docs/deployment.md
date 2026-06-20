@@ -147,6 +147,31 @@ O campo `build` deve mudar a cada rebuild/deploy. No Dokploy, defina
 `APP_BUILD_ID` com o commit ou identificador do deploy quando quiser rastreio
 exato.
 
+Se o deploy aparece como `Done`, mas `/version` continua antigo, o problema já
+passou do build: o dominio ainda esta roteando para um container/app antigo ou o
+novo container nao entrou em servico. Audite o app correto com a API do Dokploy:
+
+```bash
+export DOKPLOY_API_KEY=<token criado em Settings/Profile/API-CLI>
+python backend/scripts/dokploy-repair.py
+```
+
+Para forcar reload/redeploy do `applicationId` encontrado:
+
+```bash
+python backend/scripts/dokploy-repair.py --repair
+```
+
+Se o dominio ainda ficar preso no container antigo, force stop/start do app
+correto depois do redeploy:
+
+```bash
+python backend/scripts/dokploy-repair.py --repair --restart
+```
+
+O script valida `https://app.thiagao.online/version` contra o build esperado e
+redige campos sensiveis antes de imprimir a configuracao retornada pelo Dokploy.
+
 ## Validar Proxmox
 
 Dentro do ambiente com variáveis carregadas:

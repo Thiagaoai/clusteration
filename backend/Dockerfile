@@ -1,6 +1,6 @@
 FROM python:3.11-slim AS runtime
 
-ARG APP_BUILD_ID=2026-06-20-proxmox-config-denied-v2
+ARG APP_BUILD_ID=2026-06-20-dokploy-runtime-proof-v3
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -22,8 +22,8 @@ COPY app ./app
 COPY scripts ./scripts
 COPY config ./config
 
-RUN grep -q "2026-06-20-proxmox-config-denied-v2" app/core/config.py \
-    && grep -q "20260620-proxmox-config-denied-v2" app/web/index.html
+RUN grep -q "2026-06-20-dokploy-runtime-proof-v3" app/core/config.py \
+    && grep -q "20260620-dokploy-runtime-proof-v3" app/web/index.html
 
 RUN mkdir -p /data
 VOLUME ["/data"]

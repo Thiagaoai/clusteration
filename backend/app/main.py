@@ -46,15 +46,34 @@ def _assert_durable_db(settings) -> None:
         )
 
 
+def _runtime_db_label(settings) -> str:
+    try:
+        url = make_url(settings.DATABASE_URL)
+    except Exception:
+        return "unknown"
+    if url.get_backend_name() == "sqlite":
+        return f"sqlite:{url.database or '<memory>'}"
+    return url.get_backend_name()
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _assert_durable_db(get_settings())
+    runtime_settings = get_settings()
+    _assert_durable_db(runtime_settings)
+    print(
+        "CLUSTERATION_RUNTIME "
+        f"build={effective_build_id(runtime_settings)} "
+        f"env={runtime_settings.ENVIRONMENT} "
+        f"db={_runtime_db_label(runtime_settings)} "
+        f"web_dir={WEB_DIR}",
+        flush=True,
+    )
     async with AsyncSessionLocal() as db:
-        await seed_templates(db, get_settings())
-        await seed_admin_credential(db, get_settings())
+        await seed_templates(db, runtime_settings)
+        await seed_admin_credential(db, runtime_settings)
         await mark_orphaned_running_as_failed(db)
     worker_task = asyncio.create_task(worker_loop())
-    backup_task = asyncio.create_task(backup_loop(get_settings()))
+    backup_task = asyncio.create_task(backup_loop(runtime_settings))
     await requeue_queued_jobs()
     yield
     worker_task.cancel()

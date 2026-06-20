@@ -1,5 +1,5 @@
 const app = document.getElementById("app");
-const BUILD_ID = "2026-06-20-proxmox-config-denied-v2";
+const BUILD_ID = "2026-06-20-dokploy-runtime-proof-v3";
 let dashboardRefresh = null;
 let createMonitorRefresh = null;
 

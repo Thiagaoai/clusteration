@@ -4,7 +4,7 @@ from typing import Literal
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-SOURCE_BUILD_ID = "2026-06-20-proxmox-config-denied-v2"
+SOURCE_BUILD_ID = "2026-06-20-dokploy-runtime-proof-v3"
 UNSET_BUILD_IDS = {"", "dev", "unknown"}
 
 
