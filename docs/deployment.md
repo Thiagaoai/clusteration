@@ -159,18 +159,23 @@ python backend/scripts/dokploy-repair.py
 Para forcar reload/redeploy do `applicationId` encontrado:
 
 ```bash
-python backend/scripts/dokploy-repair.py --repair
+python backend/scripts/dokploy-repair.py --repair --logs
 ```
 
-Se o dominio ainda ficar preso no container antigo, force stop/start do app
-correto depois do redeploy:
+Se o dominio ainda ficar preso no container antigo, use o fluxo completo:
+limpa filas, para o app, dispara o endpoint oficial `application.deploy`,
+inicia novamente e procura `CLUSTERATION_RUNTIME` nos logs:
 
 ```bash
-python backend/scripts/dokploy-repair.py --repair --restart
+python backend/scripts/dokploy-repair.py --repair --restart --clean-queues --logs
 ```
 
 O script valida `https://app.thiagao.online/version` contra o build esperado e
 redige campos sensiveis antes de imprimir a configuracao retornada pelo Dokploy.
+Sem `DOKPLOY_API_KEY`, a API responde `401 Unauthorized`; nesse caso a unica
+forma de corrigir o runtime ativo e pelo painel Dokploy ou por SSH no servidor:
+parar/remover o container antigo, reiniciar Traefik se necessario e redeployar o
+app que possui o dominio `app.thiagao.online`.
 
 ## Validar Proxmox
 

@@ -198,6 +198,42 @@ def wait_for_expected_build(public_url: str, expected_build: str, timeout_second
         time.sleep(5)
 
 
+def read_application_logs(base_url: str, api_key: str, app_id: str, tail: int = 300) -> str:
+    logs = api_json(
+        base_url,
+        api_key,
+        "GET",
+        "application.readLogs",
+        query={"applicationId": app_id, "tail": str(tail), "since": "all"},
+    )
+    if isinstance(logs, str):
+        return logs
+    if isinstance(logs, dict):
+        for key in ("logs", "log", "message", "data"):
+            value = logs.get(key)
+            if isinstance(value, str):
+                return value
+        return json.dumps(redact(logs), ensure_ascii=False, default=str)
+    return json.dumps(redact(logs), ensure_ascii=False, default=str)
+
+
+def print_runtime_log_summary(logs: str, expected_build: str) -> None:
+    print("\n== application.readLogs runtime proof ==")
+    lines = logs.splitlines()
+    matches = [
+        line
+        for line in lines
+        if "CLUSTERATION_RUNTIME" in line or expected_build in line or "Application startup failed" in line
+    ]
+    if matches:
+        for line in matches[-20:]:
+            print(line)
+        return
+    print("No CLUSTERATION_RUNTIME marker found in the latest application logs.")
+    for line in lines[-40:]:
+        print(line)
+
+
 def run() -> int:
     parser = argparse.ArgumentParser(description="Audit and repair Clusteration on Dokploy")
     parser.add_argument("--dokploy-url", default=os.getenv("DOKPLOY_URL", "http://23.25.234.77:3000"))
@@ -209,6 +245,14 @@ def run() -> int:
     parser.add_argument("--expected-build", default=os.getenv("EXPECTED_BUILD", EXPECTED_BUILD))
     parser.add_argument("--repair", action="store_true", help="run reload/redeploy for the selected application")
     parser.add_argument("--restart", action="store_true", help="stop/start the selected application after redeploy")
+    parser.add_argument(
+        "--deploy-method",
+        choices=("deploy", "redeploy", "both"),
+        default=os.getenv("DOKPLOY_DEPLOY_METHOD", "deploy"),
+        help="Dokploy endpoint to trigger after reload",
+    )
+    parser.add_argument("--clean-queues", action="store_true", help="cancel pending Dokploy queues before repair")
+    parser.add_argument("--logs", action="store_true", help="print runtime proof from application logs")
     parser.add_argument("--wait", type=int, default=180, help="seconds to wait for public /version after repair")
     args = parser.parse_args()
 
@@ -256,10 +300,18 @@ def run() -> int:
     except RuntimeError as exc:
         print(f"\nWARN traefik audit failed: {exc}")
 
+    if args.logs:
+        try:
+            print_runtime_log_summary(read_application_logs(args.dokploy_url, args.api_key, app_id), args.expected_build)
+        except RuntimeError as exc:
+            print(f"\nWARN application log read failed: {exc}")
+
     if not args.repair:
         return 0 if status.get("build") == args.expected_build else 3
 
     print(f"\n== repair applicationId={app_id} appName={resolved_app_name} ==")
+    if args.clean_queues:
+        api_json(args.dokploy_url, args.api_key, "POST", "application.cleanQueues", body={"applicationId": app_id})
     api_json(
         args.dokploy_url,
         args.api_key,
@@ -267,23 +319,33 @@ def run() -> int:
         "application.reload",
         body={"applicationId": app_id, "appName": resolved_app_name},
     )
-    api_json(
-        args.dokploy_url,
-        args.api_key,
-        "POST",
-        "application.redeploy",
-        body={
-            "applicationId": app_id,
-            "title": "Runtime repair",
-            "description": f"Force current Clusteration build {args.expected_build}",
-        },
-    )
     if args.restart:
         api_json(args.dokploy_url, args.api_key, "POST", "application.stop", body={"applicationId": app_id})
         time.sleep(5)
+
+    if args.deploy_method in ("deploy", "both"):
+        api_json(args.dokploy_url, args.api_key, "POST", "application.deploy", body={"applicationId": app_id})
+    if args.deploy_method in ("redeploy", "both"):
+        api_json(
+            args.dokploy_url,
+            args.api_key,
+            "POST",
+            "application.redeploy",
+            body={
+                "applicationId": app_id,
+                "title": "Runtime repair",
+                "description": f"Force current Clusteration build {args.expected_build}",
+            },
+        )
+    if args.restart:
         api_json(args.dokploy_url, args.api_key, "POST", "application.start", body={"applicationId": app_id})
 
-    return 0 if wait_for_expected_build(args.public_url, args.expected_build, args.wait) else 4
+    ok = wait_for_expected_build(args.public_url, args.expected_build, args.wait)
+    try:
+        print_runtime_log_summary(read_application_logs(args.dokploy_url, args.api_key, app_id), args.expected_build)
+    except RuntimeError as exc:
+        print(f"\nWARN application log read failed: {exc}")
+    return 0 if ok else 4
 
 
 if __name__ == "__main__":
