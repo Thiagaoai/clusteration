@@ -101,6 +101,13 @@ export DOKPLOY_API_KEY=<token>
 python backend/scripts/dokploy-repair.py --repair --restart --clean-queues --logs --wait 300
 ```
 
+Or add the same value as a GitHub Actions repository secret named
+`DOKPLOY_API_KEY`, then run the manual workflow:
+
+```text
+Actions -> Dokploy runtime repair -> Run workflow
+```
+
 Success criteria:
 
 ```bash

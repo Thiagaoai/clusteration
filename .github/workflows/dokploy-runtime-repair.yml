@@ -1,0 +1,54 @@
+name: Dokploy runtime repair
+
+on:
+  workflow_dispatch:
+    inputs:
+      wait_seconds:
+        description: Seconds to wait for app.thiagao.online/version
+        required: true
+        default: "300"
+      deploy_method:
+        description: Dokploy deploy endpoint to use
+        required: true
+        default: deploy
+        type: choice
+        options:
+          - deploy
+          - redeploy
+          - both
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    env:
+      DOKPLOY_URL: ${{ vars.DOKPLOY_URL || 'http://23.25.234.77:3000' }}
+      DOKPLOY_API_KEY: ${{ secrets.DOKPLOY_API_KEY }}
+      CLUSTERATION_PUBLIC_URL: https://app.thiagao.online
+      EXPECTED_BUILD: 2026-06-20-dokploy-runtime-proof-v3
+      DOKPLOY_DEPLOY_METHOD: ${{ inputs.deploy_method }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require Dokploy API key
+        run: |
+          if [ -z "$DOKPLOY_API_KEY" ]; then
+            echo "Missing repository secret DOKPLOY_API_KEY."
+            echo "Create it in GitHub Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Audit public runtime before repair
+        run: python3 backend/scripts/dokploy-repair.py --logs --wait 1 || true
+
+      - name: Stop, redeploy, start, and verify runtime
+        run: >
+          python3 backend/scripts/dokploy-repair.py
+          --repair
+          --restart
+          --clean-queues
+          --logs
+          --wait "${{ inputs.wait_seconds }}"
