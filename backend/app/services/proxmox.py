@@ -111,9 +111,13 @@ class ProxmoxClient:
                 raise ProxmoxError(
                     f"VMID {template_vmid} existe em {preferred_node}, mas não está marcado como template"
                 )
-            except ProxmoxAuthError:
-                raise
             except ProxmoxError as exc:
+                # A failure on the configured node is not fatal on its own: the cluster
+                # has no shared storage, so the template can live on another node and
+                # the per-node config path may even 403 when the VMID is owned
+                # elsewhere. Fall back to the cluster-wide lookup before giving up — a
+                # genuinely broken token also fails /cluster/resources below and
+                # surfaces there with the same auth error.
                 preferred_error = str(exc)
 
         resource = await self.find_vm_resource(template_vmid)
@@ -132,9 +136,10 @@ class ProxmoxClient:
             try:
                 await self.get(f"/nodes/{preferred_node}/qemu/{vmid}/status/current")
                 return preferred_node
-            except ProxmoxAuthError:
-                raise
             except ProxmoxError:
+                # The VM may live on another node (no shared storage), where the
+                # configured-node path can 403/fail. Resolve via the cluster-wide
+                # lookup; a broken token re-surfaces on /cluster/resources below.
                 pass
         resource = await self.find_vm_resource(vmid)
         if resource is None:
