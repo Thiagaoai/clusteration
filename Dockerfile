@@ -22,6 +22,9 @@ COPY backend/app ./app
 COPY backend/scripts ./scripts
 COPY backend/config ./config
 
+RUN grep -q "2026-06-20-proxmox-config-denied-v2" app/core/config.py \
+    && grep -q "20260620-proxmox-config-denied-v2" app/web/index.html
+
 RUN mkdir -p /data
 VOLUME ["/data"]
 
