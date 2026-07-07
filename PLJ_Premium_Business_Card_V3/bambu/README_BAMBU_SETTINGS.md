@@ -11,6 +11,19 @@ impressão bicolor sem pintura manual) mais um arquivo unificado:
 | `models/plj_card_front.stl` | Detalhes: moldura, logo (3 níveis), textos, QR em relevo, inlay do verso | **Bambu PLA Silk Gold** |
 | `models/plj_card_complete.stl` | União dos dois grupos (mesh única) | referência / preview / impressão em 1 cor |
 
+**Validação da malha (trimesh):** `plj_card_back.stl` é 100% watertight (1
+corpo, sem avisos). `plj_card_front.stl` tem ~100 corpos separados — isso é
+esperado e correto: cada letra, módulo do QR e nível do logo dourado é uma
+peça independente que se apoia sobre a base preta, sem se conectar a outras
+peças douradas diretamente. `plj_card_complete.stl` é 1 corpo conectado, mas
+o OpenSCAD reporta um aviso de "non-manifold" cosmético: ele vem de uma
+grade de ~300 cubos pequenos e adjacentes (os módulos do QR) que compartilham
+arestas no CGAL — um padrão comum e inofensivo em modelos com relevo
+"pixelizado" (o mesmo ocorre em qualquer STL exportado como grade de
+cubos). O Bambu Studio corrige isso automaticamente ao carregar/laminar; se
+ele alertar sobre a malha, use a ferramenta **"Fix model"** antes de
+laminar.
+
 ### Passo a passo (impressão bicolor com AMS)
 1. Abra o Bambu Studio → **Import** → selecione `plj_card_back.stl` **e**
    `plj_card_front.stl` juntos (import múltiplo). Como ambos foram gerados a
@@ -93,6 +106,20 @@ luz do ambiente). Recomenda-se:
 - Se a leitura falhar por baixo contraste dourado/preto sob luz direta,
   ajuste a iluminação do ambiente ou considere aumentar `QR_BUMP_H` em
   `models/plj_card_complete.scad` para acentuar a sombra dos módulos.
+
+## 7.1 Sobre o arquivo STEP
+
+O OpenSCAD 2021.01 (versão disponível neste ambiente) **não suporta
+exportação para STEP** — esse formato só foi adicionado em builds
+experimentais mais recentes do OpenSCAD (2023+). Por isso, `models/plj_card_complete.step`
+não foi gerado. `models/plj_card_complete.scad` já é o arquivo-fonte
+totalmente parametrico e serve como substituto completo. Se precisar de um
+STEP de verdade:
+
+- Abra `plj_card_complete.scad` em uma build nightly/dev do OpenSCAD (2023+)
+  e use `File > Export > Export as STEP`; ou
+- Importe `models/plj_card_complete.stl` no FreeCAD e use
+  `Part > Convert to solid` seguido de `File > Export... > STEP`.
 
 ## 8. Ajustes finos recomendados
 

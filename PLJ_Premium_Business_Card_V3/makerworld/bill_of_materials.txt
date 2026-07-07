@@ -1,10 +1,13 @@
 BILL OF MATERIALS — PLJ Carpentry Premium Business Card V3 (per card)
 ========================================================================
 
-Filament:
-  - Bambu PLA Matte Black .......... ~11-12 g  (base / body)
-  - Bambu PLA Silk Gold ............. ~2-3 g   (frame, logo, text, QR, inlay)
-  - Estimated total weight .......... 14-15 g
+Filament (measured from the actual STL geometry, PLA density 1.24 g/cm3):
+  - Bambu PLA Matte Black .......... ~14.3 g  (base / body - models/plj_card_back.stl)
+  - Bambu PLA Silk Gold ............. ~0.6 g  (frame, logo, text, QR, inlay - models/plj_card_front.stl)
+  - Total (models/plj_card_complete.stl) .... ~14.85 g (matches the 14-15 g target)
+
+Note: the gold detail volume is intentionally small (thin raised relief only,
+0.2-0.8mm tall) - most of the card's mass is the solid black base slab.
 
 Consumables:
   - Build plate: Smooth PEI Plate or BIQU CryoGrip Pro (reusable, not
