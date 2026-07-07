@@ -1,0 +1,91 @@
+PRINT SETTINGS SUMMARY — PLJ Carpentry Premium Business Card V3
+==================================================================
+
+Printer: Bambu Lab A1 Mini
+Primary nozzle: 0.2 mm  (alternative profile included for 0.4 mm)
+Build plate: BIQU CryoGrip Pro or Smooth PEI Plate (NOT Textured PEI)
+Orientation: back face (leather texture) down on the plate, front face up
+Supports: none required (fully self-supporting geometry)
+Brim: optional 3–5 mm brim recommended for extra first-layer adhesion
+
+Layer heights:
+  Layer Height ............ 0.08 mm
+  Initial Layer Height .... 0.16 mm
+
+Walls / shells:
+  Wall Loops ............... 6
+  Outer Wall Line Width .... 0.20 mm
+  Inner Wall Line Width .... 0.22 mm
+  Top Surface Line Width ... 0.20 mm
+  Detect Thin Walls ........ ON
+  Arachne Wall Generator ... ON
+
+Top/Bottom/Infill:
+  Top Layers ............... 16
+  Bottom Layers ............ 12
+  Infill Density ........... 100%
+  Infill Pattern ........... Rectilinear
+  Top Surface Pattern ...... Monotonic Line
+  Bottom Pattern ............ Monotonic
+  Seam Position ............ Aligned Rear
+
+Speeds:
+  Outer Wall ............... 20 mm/s
+  Inner Wall ............... 40 mm/s
+  Top Surface .............. 15 mm/s
+  Small Perimeter .......... 12 mm/s
+  Travel .................... 250 mm/s
+  Initial Layer ............ 15 mm/s
+
+Accelerations:
+  Outer Wall ............... 600 mm/s^2
+  Inner Wall ............... 1800 mm/s^2
+  Top Surface .............. 400 mm/s^2
+  Travel .................... 2500 mm/s^2
+
+Temperatures:
+  Matte Black nozzle ....... 215 C
+  Silk Gold nozzle ......... 220 C
+  Bed ....................... 55 C
+  Cooling ................... 100% after layer 3
+
+Retraction / Z-Hop:
+  Retraction Length ........ 0.80 mm
+  Retraction Speed ......... 30 mm/s
+  Z Hop ..................... 0.20 mm
+
+Finishing:
+  Ironing ................... ON (Top Surface Only)
+  Ironing Flow .............. 10%
+  Ironing Speed ............. 10 mm/s
+  Ironing Spacing ........... 0.08 mm
+  Elephant Foot Compensation  0.12 mm
+
+AMS:
+  Smart Purge ............... ON
+  Flush Volume .............. 0.55
+  Prime Tower ............... OFF
+
+MINIMUM STROKE / FEATURE WIDTH CHECK (0.2 mm nozzle, 0.20-0.22 mm line width)
+------------------------------------------------------------------------------
+Reliable minimum printable wall  : ~0.40 mm (2 thin perimeters)
+Reliable minimum solid stroke    : ~0.55 mm (used for "PLJ CARPENTRY")
+Gold frame width                 : 1.20 mm   -> OK
+Divider line width               : 0.50 mm   -> OK (borderline, verify slicer preview)
+QR module size                   : 0.85 mm   -> OK (>> 0.60 mm minimum spec)
+QR quiet zone                    : 2.50 mm   -> OK
+Secondary text stroke (approx.)  : ~0.45-0.55 mm depending on font rendering
+                                     -> verify in slicer "Line Type" preview
+                                     before printing; increase font size if
+                                     any segment renders as a broken/dotted
+                                     line.
+
+QR CODE VALIDATION
+-------------------
+Target URL: https://pljcarpentry.us
+QR version: 2 (25x25 modules), error correction M
+Validation method: rendered the vector QR to a raster image and decoded it
+with an independent reader (zbarimg) — result matched the target URL
+exactly. This confirms the QR DATA is correct; real-world scan reliability
+after printing still depends on print quality and black/gold contrast under
+ambient light — test-scan the first physical print before mass production.

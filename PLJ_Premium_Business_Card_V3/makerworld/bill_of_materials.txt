@@ -1,0 +1,24 @@
+BILL OF MATERIALS — PLJ Carpentry Premium Business Card V3 (per card)
+========================================================================
+
+Filament:
+  - Bambu PLA Matte Black .......... ~11-12 g  (base / body)
+  - Bambu PLA Silk Gold ............. ~2-3 g   (frame, logo, text, QR, inlay)
+  - Estimated total weight .......... 14-15 g
+
+Consumables:
+  - Build plate: Smooth PEI Plate or BIQU CryoGrip Pro (reusable, not
+    consumed per print)
+  - Optional: glue stick / adhesion aid on plate if first-layer issues occur
+
+Hardware: none (single-piece print, no inserts, no supports, no screws)
+
+Estimated print time (Bambu Lab A1 Mini, 0.2 mm nozzle profile):
+  - Approx. 1h30–2h15 per card, depending on AMS purge/flush overhead
+    between the two filaments (Smart Purge ON, Flush Volume 0.55).
+
+Notes:
+  - Print one card at a time, centered on the plate, as specified.
+  - Dry both filaments below 20% humidity before printing (Silk filaments
+    are especially moisture-sensitive and prone to stringing/dull finish
+    when wet).

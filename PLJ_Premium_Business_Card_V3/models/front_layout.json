@@ -1,0 +1,18 @@
+{
+  "matrix_size": 25,
+  "qr_version": 2,
+  "quiet_zone_mm": 2.5,
+  "module_mm": 0.68,
+  "qr_side_mm": 22.0,
+  "qr_x": 61.0,
+  "qr_y": 15.0,
+  "divider_x": 59.0,
+  "blade_cx": 10.5,
+  "blade_cy": 15.0,
+  "blade_r": 6.0,
+  "text_x": 19.0,
+  "title_size": 4.5,
+  "subtitle_size": 3.4,
+  "phone_size": 3.8,
+  "scan_size": 3.4
+}

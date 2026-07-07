@@ -1,0 +1,9 @@
+VALIDACAO DE LARGURA MINIMA DE TRACO (nozzle 0.2mm)
+Metodo: renderizacao vetorial em 30 px/mm + varredura de pixels
+======================================================================
+
+PLJ CARPENTRY (texto principal)          traco min. medido: 1.067 mm | minimo: 0.55 mm | OK
+CAPE COD * MA (secundario)               traco min. medido: 0.533 mm | minimo: 0.35 mm | OK
+(508) 123-4567 (telefone)                traco min. medido: 0.633 mm | minimo: 0.35 mm | OK
+SCAN HERE                                traco min. medido: 0.467 mm | minimo: 0.35 mm | OK
+PLJCARPENTRY.US (verso)                  traco min. medido: 0.633 mm | minimo: 0.35 mm | OK

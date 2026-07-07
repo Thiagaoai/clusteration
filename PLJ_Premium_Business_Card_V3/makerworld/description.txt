@@ -1,0 +1,65 @@
+PLJ Carpentry — Premium 3D Business Card (V3)
+================================================
+
+A parametric, 3D-printed business card designed for PLJ Carpentry (Cape Cod,
+MA). Bicolor matte-black + silk-gold design with a functional, scannable QR
+code, a raised circular-saw-blade logo mark, embossed typography, and a
+subtle leather-texture back panel.
+
+FEATURES
+--------
+- 85 x 54 mm, 2.60 mm base thickness, R4 rounded corners, 0.30 mm 45° edge
+  chamfer.
+- Front: circular-saw-blade logo (no outer ring), "PLJ CARPENTRY" wordmark,
+  "CAPE COD • MA" location line, phone icon + number, vertical divider, and
+  a real functional QR code linking to https://pljcarpentry.us.
+- Back: full leather-texture surface with a small saw-blade mark and
+  "PLJCARPENTRY.US" — flush gold inlay, no protrusion (bed-friendly first
+  layer).
+- QR code sits in a 0.60 mm recessed pocket with 0.80 mm raised modules
+  (net +0.20 mm above the surface) — designed and verified to decode
+  correctly (tested against an independent QR reader before publishing).
+- Gold frame border (+0.40 mm), 3-tier raised logo (0.20 / 0.40 / 0.80 mm),
+  embossed main text (+0.70 mm, ≥0.55 mm minimum stroke width for clean
+  0.2 mm nozzle printing).
+
+FILES INCLUDED
+---------------
+- plj_card_complete.stl — full single-body model (preview / single-color
+  printing)
+- plj_card_front.stl — raised gold-detail geometry (frame, logo, text, QR
+  bumps, back inlay)
+- plj_card_back.stl — black base body (chamfered shell, QR pocket, leather
+  texture)
+- plj_card_complete.scad — fully parametric OpenSCAD source (edit text,
+  phone number, QR target URL, dimensions, etc.)
+
+PRINT SETTINGS
+--------------
+Designed and tuned for the Bambu Lab A1 Mini with a 0.2 mm nozzle (0.08 mm
+layers, 6 wall loops, 100% infill, ironing on). A 0.4 mm nozzle alternative
+profile is included but requires enlarging the secondary text before slicing
+— see the included profiles for full details.
+
+MATERIALS
+---------
+- Bambu PLA Matte Black (base)
+- Bambu PLA Silk Gold (details)
+
+HOW TO PRINT (bicolor, no manual painting needed)
+--------------------------------------------------
+1. Import plj_card_back.stl and plj_card_front.stl together (they share the
+   same coordinate origin — do not move either object).
+2. Assign Matte Black to the "back" object and Silk Gold to the "front"
+   object.
+3. Load the included print profile for your nozzle size.
+4. Print back-face-down on a Smooth PEI / CryoGrip Pro plate — no supports
+   needed.
+
+CUSTOMIZATION
+-------------
+Everything (phone number, business name, city/state, QR target URL,
+dimensions, relief heights) lives in named variables at the top of
+plj_card_complete.scad — regenerate the matrix-driven QR either by editing
+the embedded QR_MATRIX (advanced) or by re-running the included Python
+generator scripts against your own URL.

@@ -1,0 +1,49 @@
+ASSEMBLY / PRINT INSTRUCTIONS — PLJ Carpentry Premium Business Card V3
+==========================================================================
+
+This is a single-piece print — there is no assembly. These are the steps to
+get from the STL files to a finished card in Bambu Studio.
+
+1. IMPORT
+   Open Bambu Studio and import BOTH:
+     - models/plj_card_back.stl   (base, black)
+     - models/plj_card_front.stl  (raised details, gold)
+   Import them together in the same action so they land at the same
+   position. Do NOT move, rotate, or rescale either object individually —
+   they are pre-aligned to the same coordinate origin.
+
+2. ASSIGN FILAMENTS
+   - Right-click "plj_card_back" -> Set filament -> Bambu PLA Matte Black
+   - Right-click "plj_card_front" -> Set filament -> Bambu PLA Silk Gold
+
+3. ORIENTATION
+   Leave the parts as imported: back face (leather texture) down on the
+   plate, front face (logo/text/QR) facing up. No rotation needed.
+
+4. PLATE & PROFILE
+   - Build plate: Smooth PEI Plate or BIQU CryoGrip Pro (NOT Textured PEI)
+   - Load the process profile from bambu/print_profile_A1Mini_02mm.md
+     (0.2 mm nozzle) or bambu/print_profile_04mm.md (0.4 mm nozzle,
+     requires enlarging secondary text first — see that file's warning)
+
+5. SUPPORTS
+   None. The model is fully self-supporting.
+
+6. SLICE & PREVIEW
+   Use the color-by-filament preview to confirm: black on the base/body,
+   gold only on the frame, logo, text, QR bumps, and back inlay. If the
+   colors look swapped or misaligned, re-check step 1 (objects must not be
+   moved independently).
+
+7. PRINT
+   One card per plate, centered. Use dry filament (<20% humidity).
+
+8. POST-PRINT CHECK
+   - Test-scan the QR code with 2-3 different phones before producing a
+     batch.
+   - Inspect the main text ("PLJ CARPENTRY") for clean, unbroken strokes —
+     if any letter looks thin/broken, see bambu/print_profile_A1Mini_02mm.md
+     for the minimum stroke width guidance.
+
+No gluing, no inserts, no post-processing required beyond removing the part
+from the plate (a brim, if used, peels off cleanly).

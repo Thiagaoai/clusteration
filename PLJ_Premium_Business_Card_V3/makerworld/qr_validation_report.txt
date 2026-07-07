@@ -1,0 +1,46 @@
+VALIDACAO DO QR CODE - PLJ Carpentry Premium Business Card V3
+================================================================
+
+URL codificada: https://pljcarpentry.us
+Versao QR: 2 (25x25 modulos), correcao de erro M
+Modulo: 0.68 mm (>= 0.60 mm minimo especificado)
+Quiet zone: 2.50 mm (conforme especificado)
+
+METODO
+------
+1. Geracao via biblioteca "qrcode" (Python), matriz booleana real extraida
+   diretamente (nao e uma imagem de placeholder).
+2. Renderizacao vetorial (sem rasterizar) para source/qr_code.svg e para o
+   grupo <g> embutido em source/card_front.svg, usando a MESMA matriz.
+3. Decodificacao com leitor independente (zbarimg / ZBar), NAO relacionado
+   a biblioteca que gerou o QR - evita "false positive" de round-trip.
+
+RESULTADOS
+----------
+- qr_code.svg (arquivo isolado)              -> decodificado OK: https://pljcarpentry.us
+- QR embutido em card_front.svg, renderizado
+  em resolucoes de 600px a 2000px de largura
+  (compativel com foto de celular real)       -> decodificado OK em TODAS as resolucoes testadas
+- QR embutido, renderizado em altissima
+  resolucao sintetica (5140px, muito acima do
+  que uma foto real produziria)               -> ZBar falhou (ver nota abaixo)
+
+NOTA SOBRE A FALHA EM ALTA RESOLUCAO SINTETICA
+------------------------------------------------
+Ao testar o PNG de preview em resolucao muito alta (5140x3266px, gerado para
+uso como imagem de capa/MakerWorld em alta definicao), o leitor ZBar nao
+conseguiu decodificar. Isolamos a causa por bisseccao: o mesmo conteudo
+vetorial, renderizado em qualquer resolucao entre 600px e 2000px de largura
+(faixa equivalente a uma foto real de celular a curta distancia), decodifica
+sem problemas. Ou seja, o problema NAO esta nos dados do QR nem no seu
+posicionamento/contraste - e uma limitacao conhecida do proprio ZBar com
+imagens sinteticas extremamente grandes (modulos de ~40px cada). Isso nao
+afeta o uso real: uma foto de celular do cartao fisico impresso cai
+naturalmente dentro da faixa validada (600-2000px).
+
+RECOMENDACAO
+------------
+Antes de produzir em lote, escaneie o primeiro cartao fisico impresso com
+2-3 celulares diferentes (ver checklist em bambu/README_BAMBU_SETTINGS.md).
+Isso valida também o contraste real preto/dourado sob a impressora, algo que
+nenhuma simulação em tela consegue garantir por completo.
